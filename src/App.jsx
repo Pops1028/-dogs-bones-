@@ -83,6 +83,65 @@ return ( <div className="min-h-screen bg-black text-white p-6"> <div className="
       </table>
     </div>
 
+    <div className="mt-10 bg-zinc-900 border border-gray-800 rounded-2xl p-6 shadow-2xl overflow-x-auto">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-2xl font-bold">DAW Timeline View</h2>
+          <p className="text-gray-400 text-sm mt-1">
+            Visual arrangement timeline for song flow and structure.
+          </p>
+        </div>
+
+        <div className="bg-zinc-950 border border-gray-700 rounded-xl px-4 py-2 text-sm text-gray-300">
+          Timeline Mode Active
+        </div>
+      </div>
+
+      <div className="min-w-[1000px]">
+        <div className="grid grid-cols-12 gap-3 mb-3 text-xs uppercase tracking-widest text-gray-500 px-2">
+          <div>1</div>
+          <div>2</div>
+          <div>3</div>
+          <div>4</div>
+          <div>5</div>
+          <div>6</div>
+          <div>7</div>
+          <div>8</div>
+          <div>9</div>
+          <div>10</div>
+          <div>11</div>
+          <div>12</div>
+        </div>
+
+        <div className="space-y-4">
+          {songSections.map((section, index) => (
+            <div
+              key={section + "timeline"}
+              className="grid grid-cols-12 gap-3 items-center"
+            >
+              <div className="col-span-2 text-sm font-semibold text-gray-300">
+                {section}
+              </div>
+
+              <div
+                className={`col-span-${Math.min(
+                  10,
+                  (index % 5) + 4
+                )} bg-red-600 rounded-xl px-4 py-3 shadow-lg cursor-pointer hover:scale-[1.02] transition-all duration-200`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold">{section}</span>
+                  <span className="text-xs opacity-70">
+                    {(index % 5) + 4} Bars
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+
     <div className="grid md:grid-cols-3 gap-6 mt-8">
       <div className="bg-zinc-900 rounded-2xl p-6 border border-gray-800 shadow-xl">
         <h2 className="text-xl font-bold mb-3">Song Notes</h2>
