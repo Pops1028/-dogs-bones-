@@ -27,7 +27,31 @@ setDraggedIndex(null);
 
 };
 
-if (loading) { return ( <div className="min-h-screen flex items-center justify-center bg-black relative overflow-hidden"> <style>{@keyframes glow { 0% { filter: drop-shadow(0 0 10px #00ff66); transform: scale(0.95); opacity: 0; } 50% { filter: drop-shadow(0 0 25px #00ff66); transform: scale(1.05); opacity: 1; } 100% { filter: drop-shadow(0 0 15px #00ff66); transform: scale(1); opacity: 1; } } .glow { animation: glow 2.2s ease-in-out forwards; }}</style>
+if (loading) { return ( <div className="min-h-screen flex items-center justify-center bg-black relative overflow-hidden"> <style>{`
+  @keyframes glow {
+    0% {
+      filter: drop-shadow(0 0 10px #00ff66);
+      transform: scale(0.95);
+      opacity: 0;
+    }
+
+    50% {
+      filter: drop-shadow(0 0 25px #00ff66);
+      transform: scale(1.05);
+      opacity: 1;
+    }
+
+    100% {
+      filter: drop-shadow(0 0 15px #00ff66);
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  .glow {
+    animation: glow 2.2s ease-in-out forwards;
+  }
+`}</style>
 
 <div className="absolute inset-0 bg-gradient-to-b from-black via-zinc-950 to-black" />
 
