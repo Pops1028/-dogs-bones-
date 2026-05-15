@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 const SPLASH_IMG = "/Screenshot_20260514_110057_ChatGPT~2.jpg";
+const LOGO_TEXT = "/Screenshot_20260514_221551_Photos~2.jpg";
 
 export default function App() {
   const [progress, setProgress] = useState(0);
@@ -86,35 +87,36 @@ export default function App() {
               background: "#000",
               borderRadius: 8,
               overflow: "hidden",
-              width: 50,
-              height: 50,
+              width: 55,
+              height: 55,
               flexShrink: 0,
             }}>
               <img
                 src="/192.png"
                 alt="Dog Bones Logo"
                 style={{
-                  width: 50,
-                  height: 50,
+                  width: 55,
+                  height: 55,
                   objectFit: "contain",
                   mixBlendMode: "screen",
                 }}
               />
             </div>
-            <div>
-              <h1
-                className="text-4xl font-bold mb-1"
+            <div style={{ flex: 1 }}>
+              <img
+                src={LOGO_TEXT}
+                alt="Dog Bones"
                 style={{
-                  background: "linear-gradient(180deg, #39ff14, #1a7a00)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  fontStyle: "italic",
-                  letterSpacing: "0.05em",
+                  width: "100%",
+                  maxWidth: 320,
+                  height: 60,
+                  objectFit: "cover",
+                  objectPosition: "center",
+                  mixBlendMode: "screen",
+                  display: "block",
                 }}
-              >
-                DOG BONES
-              </h1>
-              <p className="text-gray-400">Song Section Organizer</p>
+              />
+              <p className="text-gray-400 text-sm mt-1">Song Section Organizer</p>
             </div>
           </div>
 
