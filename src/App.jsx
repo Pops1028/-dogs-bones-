@@ -35,7 +35,7 @@ export default function App() {
 
   useEffect(() => {
     if (phase === "dripping") {
-      const t = setTimeout(() => setPhase("app"), 1400);
+      const t = setTimeout(() => setPhase("app"), 3500);
       return () => clearTimeout(t);
     }
   }, [phase]);
@@ -61,17 +61,17 @@ export default function App() {
 
   const drips = [
     { left: "2%",  width: "12%", delay: 0 },
-    { left: "10%", width: "8%",  delay: 0.05 },
-    { left: "18%", width: "14%", delay: 0.1 },
-    { left: "28%", width: "9%",  delay: 0.03 },
-    { left: "35%", width: "13%", delay: 0.08 },
-    { left: "45%", width: "7%",  delay: 0.12 },
-    { left: "50%", width: "11%", delay: 0.02 },
-    { left: "60%", width: "15%", delay: 0.07 },
-    { left: "72%", width: "8%",  delay: 0.15 },
-    { left: "78%", width: "12%", delay: 0.04 },
-    { left: "87%", width: "9%",  delay: 0.09 },
-    { left: "93%", width: "10%", delay: 0.06 },
+    { left: "10%", width: "8%",  delay: 0.15 },
+    { left: "18%", width: "14%", delay: 0.3 },
+    { left: "28%", width: "9%",  delay: 0.1 },
+    { left: "35%", width: "13%", delay: 0.25 },
+    { left: "45%", width: "7%",  delay: 0.4 },
+    { left: "50%", width: "11%", delay: 0.05 },
+    { left: "60%", width: "15%", delay: 0.2 },
+    { left: "72%", width: "8%",  delay: 0.45 },
+    { left: "78%", width: "12%", delay: 0.12 },
+    { left: "87%", width: "9%",  delay: 0.35 },
+    { left: "93%", width: "10%", delay: 0.18 },
   ];
 
   return (
@@ -79,6 +79,9 @@ export default function App() {
       <style>{`
         @keyframes dripDown {
           0%   { transform: translateY(-100%); }
+          40%  { transform: translateY(20vh); }
+          70%  { transform: translateY(60vh); }
+          85%  { transform: translateY(90vh); }
           100% { transform: translateY(120vh); }
         }
         @keyframes pulse-glow {
@@ -86,7 +89,9 @@ export default function App() {
           50%       { text-shadow: 0 0 20px #39ff14, 0 0 40px #39ff14; }
         }
         .loading-text { animation: pulse-glow 1.2s ease-in-out infinite; }
-        .drip-container { animation: dripDown 1.3s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+        .drip-container {
+          animation: dripDown 2.8s cubic-bezier(0.25, 0.1, 0.1, 1) forwards;
+        }
       `}</style>
 
       {(phase === "loading" || phase === "dripping") && (
@@ -137,7 +142,9 @@ export default function App() {
           )}
 
           {phase === "dripping" && (
-            <div style={{ position: "absolute", inset: 0, zIndex: 10, pointerEvents: "none" }}>
+            <div style={{
+              position: "absolute", inset: 0, zIndex: 10, pointerEvents: "none",
+            }}>
               <div className="drip-container" style={{
                 position: "absolute", top: 0, left: 0, right: 0,
                 height: "100vh", background: "#000",
@@ -146,9 +153,9 @@ export default function App() {
                 <div key={i} className="drip-container" style={{
                   position: "absolute", top: 0,
                   left: drip.left, width: drip.width,
-                  height: "130vh", background: "#000",
+                  height: "140vh", background: "#000",
                   animationDelay: `${drip.delay}s`,
-                  borderRadius: "0 0 50% 50%",
+                  borderRadius: "0 0 60% 60%",
                 }} />
               ))}
             </div>
@@ -159,6 +166,7 @@ export default function App() {
       <div style={{ opacity: phase === "app" ? 1 : 0, transition: "opacity 0.4s ease" }}
         className="min-h-screen bg-black text-white p-6">
         <div className="max-w-7xl mx-auto">
+
           <div className="mb-8">
             <h1 className="text-4xl font-bold mb-2">Dog Bones 🎸</h1>
             <p className="text-gray-400">Song Section Organizer</p>
@@ -253,8 +261,9 @@ export default function App() {
               </ul>
             </div>
           </div>
+
         </div>
       </div>
     </>
   );
-                }
+              }
