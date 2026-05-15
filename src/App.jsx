@@ -35,7 +35,7 @@ export default function App() {
 
   useEffect(() => {
     if (phase === "dripping") {
-      const t = setTimeout(() => setPhase("app"), 3500);
+      const t = setTimeout(() => setPhase("app"), 4000);
       return () => clearTimeout(t);
     }
   }, [phase]);
@@ -60,110 +60,119 @@ export default function App() {
   const timelineOffsets = ["0%","10%","0%","5%","15%","0%","10%","20%","5%","0%"];
 
   const drips = [
-    { left: "2%",  width: "12%", delay: 0 },
-    { left: "10%", width: "8%",  delay: 0.15 },
-    { left: "18%", width: "14%", delay: 0.3 },
-    { left: "28%", width: "9%",  delay: 0.1 },
-    { left: "35%", width: "13%", delay: 0.25 },
-    { left: "45%", width: "7%",  delay: 0.4 },
-    { left: "50%", width: "11%", delay: 0.05 },
-    { left: "60%", width: "15%", delay: 0.2 },
-    { left: "72%", width: "8%",  delay: 0.45 },
-    { left: "78%", width: "12%", delay: 0.12 },
-    { left: "87%", width: "9%",  delay: 0.35 },
-    { left: "93%", width: "10%", delay: 0.18 },
+    { left: "0%",  width: "11%", delay: 0 },
+    { left: "9%",  width: "8%",  delay: 0.2 },
+    { left: "16%", width: "13%", delay: 0.05 },
+    { left: "27%", width: "9%",  delay: 0.35 },
+    { left: "34%", width: "12%", delay: 0.15 },
+    { left: "44%", width: "8%",  delay: 0.45 },
+    { left: "50%", width: "11%", delay: 0.1 },
+    { left: "59%", width: "14%", delay: 0.3 },
+    { left: "71%", width: "8%",  delay: 0.5 },
+    { left: "77%", width: "12%", delay: 0.2 },
+    { left: "87%", width: "8%",  delay: 0.4 },
+    { left: "93%", width: "10%", delay: 0.08 },
   ];
 
   return (
     <>
       <style>{`
-        @keyframes dripDown {
-          0%   { transform: translateY(-100%); }
-          40%  { transform: translateY(20vh); }
-          70%  { transform: translateY(60vh); }
-          85%  { transform: translateY(90vh); }
-          100% { transform: translateY(120vh); }
+        @keyframes splashDrip {
+          0%   { transform: translateY(0%); }
+          30%  { transform: translateY(15vh); }
+          60%  { transform: translateY(50vh); }
+          80%  { transform: translateY(85vh); }
+          100% { transform: translateY(130vh); }
         }
         @keyframes pulse-glow {
           0%, 100% { text-shadow: 0 0 8px #39ff14, 0 0 20px #39ff14; }
           50%       { text-shadow: 0 0 20px #39ff14, 0 0 40px #39ff14; }
         }
         .loading-text { animation: pulse-glow 1.2s ease-in-out infinite; }
-        .drip-container {
-          animation: dripDown 2.8s cubic-bezier(0.25, 0.1, 0.1, 1) forwards;
+        .splash-drip {
+          animation: splashDrip 3.2s cubic-bezier(0.3, 0.0, 0.2, 1) forwards;
         }
       `}</style>
 
       {(phase === "loading" || phase === "dripping") && (
         <div style={{
           position: "fixed", inset: 0, zIndex: 9999,
-          background: "#000", display: "flex",
-          flexDirection: "column", alignItems: "center",
-          justifyContent: "flex-end", overflow: "hidden",
+          background: "#000", overflow: "hidden",
         }}>
-          <img src={SPLASH_IMG} alt="Dog Bones" style={{
-            position: "absolute", inset: 0,
-            width: "100%", height: "100%",
-            objectFit: "cover", objectPosition: "center",
-          }} />
 
-          <div style={{
-            position: "absolute", inset: 0,
-            background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 50%)",
-          }} />
-
-          {phase === "loading" && (
-            <div style={{
-              position: "relative", zIndex: 2,
-              width: "100%", padding: "0 32px 48px",
+          {/* THE SPLASH IMAGE — this is what drips off */}
+          <div
+            className={phase === "dripping" ? "splash-drip" : ""}
+            style={{
+              position: "absolute", inset: 0,
               display: "flex", flexDirection: "column",
-              alignItems: "center", gap: 12,
-            }}>
-              <span className="loading-text" style={{
-                color: "#39ff14", fontSize: 13,
-                letterSpacing: "0.4em", fontFamily: "monospace", fontWeight: 700,
-              }}>
-                LOADING
-              </span>
-              <div style={{
-                width: "100%", height: 4,
-                background: "rgba(57,255,20,0.2)",
-                borderRadius: 2, overflow: "hidden",
-                boxShadow: "0 0 10px rgba(57,255,20,0.3)",
-              }}>
-                <div style={{
-                  height: "100%", width: `${progress}%`,
-                  background: "linear-gradient(90deg, #1a7a00, #39ff14)",
-                  borderRadius: 2, boxShadow: "0 0 12px #39ff14",
-                  transition: "width 0.03s linear",
-                }} />
-              </div>
-            </div>
-          )}
+              alignItems: "center", justifyContent: "flex-end",
+            }}
+          >
+            <img src={SPLASH_IMG} alt="Dog Bones" style={{
+              position: "absolute", inset: 0,
+              width: "100%", height: "100%",
+              objectFit: "cover", objectPosition: "center",
+            }} />
 
-          {phase === "dripping" && (
             <div style={{
-              position: "absolute", inset: 0, zIndex: 10, pointerEvents: "none",
-            }}>
-              <div className="drip-container" style={{
-                position: "absolute", top: 0, left: 0, right: 0,
-                height: "100vh", background: "#000",
+              position: "absolute", inset: 0,
+              background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 50%)",
+            }} />
+
+            {/* Drip shapes clipped to image — slide down WITH the image */}
+            {phase === "dripping" && drips.map((drip, i) => (
+              <div key={i} style={{
+                position: "absolute",
+                bottom: "-18%",
+                left: drip.left,
+                width: drip.width,
+                height: "22%",
+                background: "linear-gradient(to bottom, #000 0%, #0a1a00 40%, #1a3d00 70%, #39ff14 100%)",
+                borderRadius: "0 0 60% 60%",
+                animationDelay: `${drip.delay}s`,
+                filter: "blur(1px)",
               }} />
-              {drips.map((drip, i) => (
-                <div key={i} className="drip-container" style={{
-                  position: "absolute", top: 0,
-                  left: drip.left, width: drip.width,
-                  height: "140vh", background: "#000",
-                  animationDelay: `${drip.delay}s`,
-                  borderRadius: "0 0 60% 60%",
-                }} />
-              ))}
-            </div>
-          )}
+            ))}
+
+            {/* Loading bar — only shown during loading phase */}
+            {phase === "loading" && (
+              <div style={{
+                position: "relative", zIndex: 2,
+                width: "100%", padding: "0 32px 48px",
+                display: "flex", flexDirection: "column",
+                alignItems: "center", gap: 12,
+              }}>
+                <span className="loading-text" style={{
+                  color: "#39ff14", fontSize: 13,
+                  letterSpacing: "0.4em", fontFamily: "monospace", fontWeight: 700,
+                }}>
+                  LOADING
+                </span>
+                <div style={{
+                  width: "100%", height: 4,
+                  background: "rgba(57,255,20,0.2)",
+                  borderRadius: 2, overflow: "hidden",
+                  boxShadow: "0 0 10px rgba(57,255,20,0.3)",
+                }}>
+                  <div style={{
+                    height: "100%", width: `${progress}%`,
+                    background: "linear-gradient(90deg, #1a7a00, #39ff14)",
+                    borderRadius: 2, boxShadow: "0 0 12px #39ff14",
+                    transition: "width 0.03s linear",
+                  }} />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      <div style={{ opacity: phase === "app" ? 1 : 0, transition: "opacity 0.4s ease" }}
+      {/* APP underneath — visible as splash drips away */}
+      <div style={{
+        opacity: phase === "app" ? 1 : phase === "dripping" ? 1 : 0,
+        transition: "opacity 0.3s ease",
+      }}
         className="min-h-screen bg-black text-white p-6">
         <div className="max-w-7xl mx-auto">
 
@@ -266,4 +275,4 @@ export default function App() {
       </div>
     </>
   );
-              }
+                  }
