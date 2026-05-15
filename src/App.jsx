@@ -3,6 +3,26 @@ import { useEffect, useState } from "react";
 const SPLASH_IMG = "/Screenshot_20260514_110057_ChatGPT~2.jpg";
 const LOGO_TEXT = "/Screenshot_20260514_221551_Photos~2.jpg";
 
+const DEFAULT_SECTIONS = [
+  "Intro", "Pre-Verse", "Verse", "Chorus", "Between Verse",
+  "2nd Verse", "Breakdown", "Guitar Solo", "Interlude", "Chorus Outro",
+];
+
+const DEFAULT_INSTRUMENTS = [
+  "Guitar", "Bass", "Drums", "Vocals", "Lead Guitar", "Synth", "Backing Vocals",
+];
+
+function load(key, fallback) {
+  try {
+    const val = localStorage.getItem(key);
+    return val ? JSON.parse(val) : fallback;
+  } catch { return fallback; }
+}
+
+function save(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
+}
+
 export default function App() {
   const [progress, setProgress] = useState(0);
   const [phase, setPhase] = useState("loading");
@@ -11,16 +31,18 @@ export default function App() {
   const [editingValue, setEditingValue] = useState("");
   const [newSection, setNewSection] = useState("");
 
-  const [songSections, setSongSections] = useState([
-    "Intro", "Pre-Verse", "Verse", "Chorus", "Between Verse",
-    "2nd Verse", "Breakdown", "Guitar Solo", "Interlude", "Chorus Outro",
-  ]);
+  const [songSections, setSongSections] = useState(() => load("db_sections", DEFAULT_SECTIONS));
+  const [checked, setChecked] = useState(() => load("db_checked", {}));
+  const [notes, setNotes] = useState(() => load("db_notes", ""));
+  const [bpm, setBpm] = useState(() => load("db_bpm", ""));
+  const [songKey, setSongKey] = useState(() => load("db_key", ""));
 
-  const instruments = [
-    "Guitar", "Bass", "Drums", "Vocals", "Lead Guitar", "Synth", "Backing Vocals",
-  ];
-
-  const [checked, setChecked] = useState({});
+  // Auto-save whenever data changes
+  useEffect(() => { save("db_sections", songSections); }, [songSections]);
+  useEffect(() => { save("db_checked", checked); }, [checked]);
+  useEffect(() => { save("db_notes", notes); }, [notes]);
+  useEffect(() => { save("db_bpm", bpm); }, [bpm]);
+  useEffect(() => { save("db_key", songKey); }, [songKey]);
 
   useEffect(() => {
     if (phase !== "loading") return;
@@ -111,6 +133,7 @@ export default function App() {
         .splash-fade { animation: fadeOut 1.1s ease-in-out forwards; }
         * { box-sizing: border-box; }
         body { background: #000; margin: 0; }
+
         .chrome-text {
           background: linear-gradient(180deg, #ffffff 0%, #aaaaaa 30%, #39ff14 65%, #1a7a00 100%);
           -webkit-background-clip: text;
@@ -132,31 +155,53 @@ export default function App() {
           border-color: rgba(57,255,20,0.6);
           box-shadow: 0 0 8px rgba(57,255,20,0.2);
         }
-        .chrome-checkbox { accent-color: #39ff14; width: 18px; height: 18px; cursor: pointer; }
+
+        /* Custom black checkbox with green check */
+        .custom-check {
+          appearance: none;
+          -webkit-appearance: none;
+          width: 20px;
+          height: 20px;
+          background: #000;
+          border: 2px solid rgba(57,255,20,0.5);
+          border-radius: 4px;
+          cursor: pointer;
+          position: relative;
+          display: inline-block;
+          transition: all 0.15s;
+        }
+        .custom-check:checked {
+          background: #000;
+          border-color: #39ff14;
+          box-shadow: 0 0 8px rgba(57,255,20,0.6);
+        }
+        .custom-check:checked::after {
+          content: "";
+          position: absolute;
+          left: 4px;
+          top: 1px;
+          width: 6px;
+          height: 10px;
+          border: 2px solid #39ff14;
+          border-top: none;
+          border-left: none;
+          transform: rotate(45deg);
+        }
+
         .glow-bar { box-shadow: 0 0 10px rgba(57,255,20,0.5), 0 0 20px rgba(57,255,20,0.2); }
         .icon-btn {
-          background: none;
-          border: none;
-          cursor: pointer;
-          padding: 4px 6px;
-          border-radius: 6px;
-          font-size: 14px;
-          line-height: 1;
-          transition: background 0.15s;
+          background: none; border: none; cursor: pointer;
+          padding: 4px 6px; border-radius: 6px;
+          font-size: 14px; line-height: 1; transition: background 0.15s;
         }
         .icon-btn:hover { background: rgba(57,255,20,0.1); }
         .add-btn {
           background: linear-gradient(135deg, #1a3a1a, #0a1a0a);
           border: 1px solid rgba(57,255,20,0.4);
-          color: #39ff14;
-          border-radius: 8px;
-          padding: 8px 16px;
-          cursor: pointer;
-          font-size: 13px;
-          font-weight: 700;
-          letter-spacing: 0.1em;
-          transition: all 0.2s;
-          white-space: nowrap;
+          color: #39ff14; border-radius: 8px;
+          padding: 8px 16px; cursor: pointer;
+          font-size: 13px; font-weight: 700;
+          letter-spacing: 0.1em; transition: all 0.2s; white-space: nowrap;
         }
         .add-btn:hover {
           background: linear-gradient(135deg, #2a5a2a, #1a3a1a);
@@ -180,10 +225,18 @@ export default function App() {
               width: 60, height: 60, flexShrink: 0,
               borderRadius: 12, overflow: "hidden",
               border: "1px solid rgba(57,255,20,0.3)",
-              boxShadow: "0 0 12px rgba(57,255,20,0.2)",
+              boxShadow: "0 0 12px rgba(57,255,20,0.4)",
             }}>
-              <img src="/launchericon-192x192.png" alt="Logo"
-                style={{ width: 60, height: 60, objectFit: "cover", mixBlendMode: "screen" }} />
+              <img
+                src="/launchericon-192x192.png"
+                alt="Logo"
+                style={{
+                  width: 60, height: 60,
+                  objectFit: "cover",
+                  mixBlendMode: "screen",
+                  filter: "sepia(1) saturate(3) hue-rotate(70deg) brightness(0.9)",
+                }}
+              />
             </div>
             <div style={{ flex: 1 }}>
               <img src={LOGO_TEXT} alt="Dog Bones"
@@ -234,7 +287,7 @@ export default function App() {
                   }}>
                     SONG SECTION
                   </th>
-                  {instruments.map((inst) => (
+                  {DEFAULT_INSTRUMENTS.map((inst) => (
                     <th key={inst} style={{
                       padding: "14px 16px", borderBottom: "1px solid rgba(57,255,20,0.3)",
                       textAlign: "center", whiteSpace: "nowrap",
@@ -295,13 +348,13 @@ export default function App() {
                         </>
                       )}
                     </td>
-                    {instruments.map((_, colIndex) => {
+                    {DEFAULT_INSTRUMENTS.map((_, colIndex) => {
                       const key = `${rowIndex}-${colIndex}`;
                       return (
                         <td key={colIndex} style={{ padding: "10px 16px", textAlign: "center" }}>
                           <input
                             type="checkbox"
-                            className="chrome-checkbox"
+                            className="custom-check"
                             checked={!!checked[key]}
                             onChange={() => toggleChecked(rowIndex, colIndex)}
                           />
@@ -310,9 +363,9 @@ export default function App() {
                     })}
                     <td style={{ padding: "10px 16px", textAlign: "center", whiteSpace: "nowrap" }}>
                       <button className="icon-btn" onClick={() => startEdit(rowIndex)}
-                        style={{ color: "#39ff14", marginRight: 4 }} title="Rename">✏️</button>
+                        style={{ color: "#39ff14", marginRight: 4 }}>✏️</button>
                       <button className="icon-btn" onClick={() => removeSection(rowIndex)}
-                        style={{ color: "#ff4444" }} title="Delete">🗑️</button>
+                        style={{ color: "#ff4444" }}>🗑️</button>
                     </td>
                   </tr>
                 ))}
@@ -366,8 +419,13 @@ export default function App() {
               <h2 className="chrome-text" style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, letterSpacing: "0.1em" }}>
                 NOTES
               </h2>
-              <textarea className="chrome-input" style={{ height: 140, resize: "none", fontFamily: "monospace" }}
-                placeholder="Session notes..." />
+              <textarea
+                className="chrome-input"
+                style={{ height: 140, resize: "none", fontFamily: "monospace" }}
+                placeholder="Session notes..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
             </div>
             <div style={{
               borderRadius: 16, padding: 20,
@@ -377,8 +435,19 @@ export default function App() {
               <h2 className="chrome-text" style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, letterSpacing: "0.1em" }}>
                 TEMPO & KEY
               </h2>
-              <input className="chrome-input" style={{ marginBottom: 10 }} placeholder="BPM (e.g. 120)" />
-              <input className="chrome-input" placeholder="Key (e.g. A minor)" />
+              <input
+                className="chrome-input"
+                style={{ marginBottom: 10 }}
+                placeholder="BPM (e.g. 120)"
+                value={bpm}
+                onChange={(e) => setBpm(e.target.value)}
+              />
+              <input
+                className="chrome-input"
+                placeholder="Key (e.g. A minor)"
+                value={songKey}
+                onChange={(e) => setSongKey(e.target.value)}
+              />
             </div>
             <div style={{
               borderRadius: 16, padding: 20,
@@ -392,7 +461,7 @@ export default function App() {
                 <li><span style={{ color: "#39ff14" }}>▸</span> Drag sections to rearrange</li>
                 <li><span style={{ color: "#39ff14" }}>▸</span> ✏️ to rename a section</li>
                 <li><span style={{ color: "#39ff14" }}>▸</span> 🗑️ to delete a section</li>
-                <li><span style={{ color: "#39ff14" }}>▸</span> Type + ADD to create new</li>
+                <li><span style={{ color: "#39ff14" }}>▸</span> All data saves automatically</li>
               </ul>
             </div>
           </div>
