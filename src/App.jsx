@@ -24,7 +24,7 @@ export default function App() {
       setProgress((p) => {
         if (p >= 100) {
           clearInterval(interval);
-          setTimeout(() => setPhase("dripping"), 300);
+          setTimeout(() => setPhase("fading"), 300);
           return 100;
         }
         return p + 1.2;
@@ -34,8 +34,8 @@ export default function App() {
   }, [phase]);
 
   useEffect(() => {
-    if (phase === "dripping") {
-      const t = setTimeout(() => setPhase("app"), 4000);
+    if (phase === "fading") {
+      const t = setTimeout(() => setPhase("app"), 1200);
       return () => clearTimeout(t);
     }
   }, [phase]);
@@ -59,119 +59,78 @@ export default function App() {
   const timelineWidths = ["15%","20%","55%","70%","25%","55%","35%","30%","20%","60%"];
   const timelineOffsets = ["0%","10%","0%","5%","15%","0%","10%","20%","5%","0%"];
 
-  const drips = [
-    { left: "0%",  width: "11%", delay: 0 },
-    { left: "9%",  width: "8%",  delay: 0.2 },
-    { left: "16%", width: "13%", delay: 0.05 },
-    { left: "27%", width: "9%",  delay: 0.35 },
-    { left: "34%", width: "12%", delay: 0.15 },
-    { left: "44%", width: "8%",  delay: 0.45 },
-    { left: "50%", width: "11%", delay: 0.1 },
-    { left: "59%", width: "14%", delay: 0.3 },
-    { left: "71%", width: "8%",  delay: 0.5 },
-    { left: "77%", width: "12%", delay: 0.2 },
-    { left: "87%", width: "8%",  delay: 0.4 },
-    { left: "93%", width: "10%", delay: 0.08 },
-  ];
-
   return (
     <>
       <style>{`
-        @keyframes splashDrip {
-          0%   { transform: translateY(0%); }
-          30%  { transform: translateY(15vh); }
-          60%  { transform: translateY(50vh); }
-          80%  { transform: translateY(85vh); }
-          100% { transform: translateY(130vh); }
-        }
         @keyframes pulse-glow {
           0%, 100% { text-shadow: 0 0 8px #39ff14, 0 0 20px #39ff14; }
           50%       { text-shadow: 0 0 20px #39ff14, 0 0 40px #39ff14; }
         }
         .loading-text { animation: pulse-glow 1.2s ease-in-out infinite; }
-        .splash-drip {
-          animation: splashDrip 3.2s cubic-bezier(0.3, 0.0, 0.2, 1) forwards;
+        .splash-fade {
+          animation: fadeOut 1.1s ease-in-out forwards;
+        }
+        @keyframes fadeOut {
+          0%   { opacity: 1; }
+          100% { opacity: 0; }
         }
       `}</style>
 
-      {(phase === "loading" || phase === "dripping") && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 9999,
-          background: "#000", overflow: "hidden",
-        }}>
+      {(phase === "loading" || phase === "fading") && (
+        <div
+          className={phase === "fading" ? "splash-fade" : ""}
+          style={{
+            position: "fixed", inset: 0, zIndex: 9999,
+            background: "#000", overflow: "hidden",
+            display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "flex-end",
+          }}
+        >
+          <img src={SPLASH_IMG} alt="Dog Bones" style={{
+            position: "absolute", inset: 0,
+            width: "100%", height: "100%",
+            objectFit: "cover", objectPosition: "center",
+          }} />
 
-          {/* THE SPLASH IMAGE — this is what drips off */}
-          <div
-            className={phase === "dripping" ? "splash-drip" : ""}
-            style={{
-              position: "absolute", inset: 0,
-              display: "flex", flexDirection: "column",
-              alignItems: "center", justifyContent: "flex-end",
-            }}
-          >
-            <img src={SPLASH_IMG} alt="Dog Bones" style={{
-              position: "absolute", inset: 0,
-              width: "100%", height: "100%",
-              objectFit: "cover", objectPosition: "center",
-            }} />
+          <div style={{
+            position: "absolute", inset: 0,
+            background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 50%)",
+          }} />
 
+          {phase === "loading" && (
             <div style={{
-              position: "absolute", inset: 0,
-              background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 50%)",
-            }} />
-
-            {/* Drip shapes clipped to image — slide down WITH the image */}
-            {phase === "dripping" && drips.map((drip, i) => (
-              <div key={i} style={{
-                position: "absolute",
-                bottom: "-18%",
-                left: drip.left,
-                width: drip.width,
-                height: "22%",
-                background: "linear-gradient(to bottom, #000 0%, #0a1a00 40%, #1a3d00 70%, #39ff14 100%)",
-                borderRadius: "0 0 60% 60%",
-                animationDelay: `${drip.delay}s`,
-                filter: "blur(1px)",
-              }} />
-            ))}
-
-            {/* Loading bar — only shown during loading phase */}
-            {phase === "loading" && (
-              <div style={{
-                position: "relative", zIndex: 2,
-                width: "100%", padding: "0 32px 48px",
-                display: "flex", flexDirection: "column",
-                alignItems: "center", gap: 12,
+              position: "relative", zIndex: 2,
+              width: "100%", padding: "0 32px 48px",
+              display: "flex", flexDirection: "column",
+              alignItems: "center", gap: 12,
+            }}>
+              <span className="loading-text" style={{
+                color: "#39ff14", fontSize: 13,
+                letterSpacing: "0.4em", fontFamily: "monospace", fontWeight: 700,
               }}>
-                <span className="loading-text" style={{
-                  color: "#39ff14", fontSize: 13,
-                  letterSpacing: "0.4em", fontFamily: "monospace", fontWeight: 700,
-                }}>
-                  LOADING
-                </span>
+                LOADING
+              </span>
+              <div style={{
+                width: "100%", height: 4,
+                background: "rgba(57,255,20,0.2)",
+                borderRadius: 2, overflow: "hidden",
+                boxShadow: "0 0 10px rgba(57,255,20,0.3)",
+              }}>
                 <div style={{
-                  width: "100%", height: 4,
-                  background: "rgba(57,255,20,0.2)",
-                  borderRadius: 2, overflow: "hidden",
-                  boxShadow: "0 0 10px rgba(57,255,20,0.3)",
-                }}>
-                  <div style={{
-                    height: "100%", width: `${progress}%`,
-                    background: "linear-gradient(90deg, #1a7a00, #39ff14)",
-                    borderRadius: 2, boxShadow: "0 0 12px #39ff14",
-                    transition: "width 0.03s linear",
-                  }} />
-                </div>
+                  height: "100%", width: `${progress}%`,
+                  background: "linear-gradient(90deg, #1a7a00, #39ff14)",
+                  borderRadius: 2, boxShadow: "0 0 12px #39ff14",
+                  transition: "width 0.03s linear",
+                }} />
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* APP underneath — visible as splash drips away */}
       <div style={{
-        opacity: phase === "app" ? 1 : phase === "dripping" ? 1 : 0,
-        transition: "opacity 0.3s ease",
+        opacity: phase === "app" ? 1 : 0,
+        transition: "opacity 0.5s ease",
       }}
         className="min-h-screen bg-black text-white p-6">
         <div className="max-w-7xl mx-auto">
@@ -275,4 +234,4 @@ export default function App() {
       </div>
     </>
   );
-                  }
+}
