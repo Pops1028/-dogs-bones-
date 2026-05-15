@@ -60,6 +60,10 @@ export default function App() {
   const timelineWidths = ["15%","20%","55%","70%","25%","55%","35%","30%","20%","60%"];
   const timelineOffsets = ["0%","10%","0%","5%","15%","0%","10%","20%","5%","0%"];
 
+  const chrome = "linear-gradient(180deg, #e8e8e8 0%, #a0a0a0 30%, #39ff14 60%, #1a7a00 100%)";
+  const chromeBorder = "1px solid rgba(57,255,20,0.3)";
+  const cardBg = "linear-gradient(145deg, #0a0a0a, #111411)";
+
   return (
     <>
       <style>{`
@@ -75,31 +79,75 @@ export default function App() {
         .splash-fade { animation: fadeOut 1.1s ease-in-out forwards; }
         * { box-sizing: border-box; }
         body { background: #000; margin: 0; }
+
+        .chrome-text {
+          background: linear-gradient(180deg, #ffffff 0%, #aaaaaa 30%, #39ff14 65%, #1a7a00 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+        .chrome-card {
+          background: linear-gradient(145deg, #0a0f0a, #111811);
+          border: 1px solid rgba(57,255,20,0.25);
+          box-shadow: 0 0 20px rgba(57,255,20,0.05), inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+        .chrome-header {
+          background: linear-gradient(180deg, #1a1a1a 0%, #0a0f0a 100%);
+          border-bottom: 1px solid rgba(57,255,20,0.3);
+        }
+        .chrome-row:hover {
+          background: linear-gradient(90deg, rgba(57,255,20,0.05), transparent) !important;
+        }
+        .chrome-row-dragging {
+          opacity: 0.4;
+          background: rgba(57,255,20,0.1) !important;
+        }
+        .chrome-input {
+          background: #050a05;
+          border: 1px solid rgba(57,255,20,0.2);
+          color: #ccc;
+          border-radius: 8px;
+          padding: 8px 12px;
+          width: 100%;
+          outline: none;
+        }
+        .chrome-input:focus {
+          border-color: rgba(57,255,20,0.6);
+          box-shadow: 0 0 8px rgba(57,255,20,0.2);
+        }
+        .chrome-checkbox {
+          accent-color: #39ff14;
+          width: 18px;
+          height: 18px;
+          cursor: pointer;
+        }
+        .glow-bar {
+          box-shadow: 0 0 10px rgba(57,255,20,0.5), 0 0 20px rgba(57,255,20,0.2);
+        }
       `}</style>
 
-      {/* APP — always visible underneath */}
-      <div className="min-h-screen bg-black text-white p-6">
-        <div className="max-w-7xl mx-auto">
+      {/* APP */}
+      <div style={{ minHeight: "100vh", background: "#000", color: "#ccc" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 16px" }}>
 
           {/* Header */}
-          <div className="mb-8 flex items-center gap-3">
+          <div style={{
+            display: "flex", alignItems: "center", gap: 12, marginBottom: 32,
+            padding: "16px 20px", borderRadius: 16,
+            background: "linear-gradient(145deg, #0a0f0a, #111811)",
+            border: "1px solid rgba(57,255,20,0.3)",
+            boxShadow: "0 0 30px rgba(57,255,20,0.08)",
+          }}>
             <div style={{
-              background: "#000",
-              borderRadius: 8,
-              overflow: "hidden",
-              width: 55,
-              height: 55,
-              flexShrink: 0,
+              width: 60, height: 60, flexShrink: 0,
+              borderRadius: 12, overflow: "hidden",
+              border: "1px solid rgba(57,255,20,0.3)",
+              boxShadow: "0 0 12px rgba(57,255,20,0.2)",
             }}>
               <img
-                src="/192.png"
-                alt="Dog Bones Logo"
-                style={{
-                  width: 55,
-                  height: 55,
-                  objectFit: "contain",
-                  mixBlendMode: "screen",
-                }}
+                src="/launchericon-192x192.png"
+                alt="Logo"
+                style={{ width: 60, height: 60, objectFit: "cover", mixBlendMode: "screen" }}
               />
             </div>
             <div style={{ flex: 1 }}>
@@ -107,54 +155,85 @@ export default function App() {
                 src={LOGO_TEXT}
                 alt="Dog Bones"
                 style={{
-                  width: "100%",
-                  maxWidth: 320,
-                  height: 60,
-                  objectFit: "cover",
-                  objectPosition: "center",
-                  mixBlendMode: "screen",
-                  display: "block",
+                  width: "100%", maxWidth: 280, height: 55,
+                  objectFit: "cover", objectPosition: "center",
+                  mixBlendMode: "screen", display: "block",
                 }}
               />
-              <p className="text-gray-400 text-sm mt-1">Song Section Organizer</p>
+              <p style={{ color: "rgba(57,255,20,0.5)", fontSize: 11, letterSpacing: "0.3em", marginTop: 2 }}>
+                SONG SECTION ORGANIZER
+              </p>
             </div>
           </div>
 
           {/* Grid Table */}
-          <div className="overflow-x-auto rounded-2xl border border-gray-800 bg-zinc-900 shadow-2xl">
-            <table className="w-full border-collapse">
+          <div style={{
+            overflowX: "auto", borderRadius: 16,
+            border: "1px solid rgba(57,255,20,0.25)",
+            boxShadow: "0 0 30px rgba(57,255,20,0.05)",
+            marginBottom: 24,
+          }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
-                <tr className="bg-zinc-800 text-left">
-                  <th className="p-4 border-b border-gray-700 sticky left-0 bg-zinc-800 z-10 min-w-[180px]">
-                    Song Section
+                <tr style={{ background: "linear-gradient(180deg, #111811, #0a0f0a)" }}>
+                  <th style={{
+                    padding: "14px 16px",
+                    borderBottom: "1px solid rgba(57,255,20,0.3)",
+                    textAlign: "left", minWidth: 160,
+                    position: "sticky", left: 0,
+                    background: "#111811",
+                    fontSize: 12, letterSpacing: "0.15em",
+                    background: "linear-gradient(180deg, #ffffff 0%, #aaaaaa 30%, #39ff14 65%, #1a7a00 100%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}>
+                    SONG SECTION
                   </th>
                   {instruments.map((inst) => (
-                    <th key={inst} className="p-4 border-b border-gray-700 text-center whitespace-nowrap">
-                      {inst}
+                    <th key={inst} style={{
+                      padding: "14px 16px",
+                      borderBottom: "1px solid rgba(57,255,20,0.3)",
+                      textAlign: "center", whiteSpace: "nowrap",
+                      fontSize: 11, letterSpacing: "0.1em",
+                      background: "linear-gradient(180deg, #ffffff 0%, #aaaaaa 30%, #39ff14 65%, #1a7a00 100%)",
+                      WebkitBackgroundClip: "text",
+                      WebkitTextFillColor: "transparent",
+                    }}>
+                      {inst.toUpperCase()}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {songSections.map((section, rowIndex) => (
-                  <tr key={section} draggable
+                  <tr
+                    key={section}
+                    draggable
                     onDragStart={() => handleDragStart(rowIndex)}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={() => handleDrop(rowIndex)}
-                    className={`cursor-move transition-colors ${
-                      draggedIndex === rowIndex ? "opacity-40 bg-zinc-700" : "hover:bg-zinc-800"
-                    }`}>
-                    <td className="p-4 border-b border-gray-800 font-semibold sticky left-0 bg-zinc-900">
-                      <span className="mr-2 text-gray-500">☰</span>{section}
+                    className={`chrome-row ${draggedIndex === rowIndex ? "chrome-row-dragging" : ""}`}
+                    style={{ cursor: "grab", borderBottom: "1px solid rgba(57,255,20,0.1)" }}
+                  >
+                    <td style={{
+                      padding: "12px 16px", fontWeight: 600,
+                      position: "sticky", left: 0,
+                      background: "#080d08",
+                      color: "#aaa", fontSize: 13,
+                    }}>
+                      <span style={{ color: "rgba(57,255,20,0.4)", marginRight: 8 }}>☰</span>
+                      {section}
                     </td>
                     {instruments.map((_, colIndex) => {
                       const key = `${rowIndex}-${colIndex}`;
                       return (
-                        <td key={colIndex} className="p-4 border-b border-gray-800 text-center">
-                          <input type="checkbox"
-                            className="w-5 h-5 accent-green-400 cursor-pointer"
+                        <td key={colIndex} style={{ padding: "12px 16px", textAlign: "center" }}>
+                          <input
+                            type="checkbox"
+                            className="chrome-checkbox"
                             checked={!!checked[key]}
-                            onChange={() => toggleChecked(rowIndex, colIndex)} />
+                            onChange={() => toggleChecked(rowIndex, colIndex)}
+                          />
                         </td>
                       );
                     })}
@@ -165,22 +244,37 @@ export default function App() {
           </div>
 
           {/* DAW Timeline */}
-          <div className="mt-10 bg-zinc-900 border border-gray-800 rounded-2xl p-6 shadow-2xl">
-            <h2 className="text-2xl font-bold mb-2">DAW Timeline View</h2>
-            <p className="text-gray-400 text-sm mb-6">Green-themed studio arrangement view</p>
-            <div className="space-y-3">
+          <div style={{
+            borderRadius: 16, padding: 24, marginBottom: 24,
+            background: "linear-gradient(145deg, #0a0f0a, #111811)",
+            border: "1px solid rgba(57,255,20,0.25)",
+            boxShadow: "0 0 30px rgba(57,255,20,0.05)",
+          }}>
+            <h2 className="chrome-text" style={{ fontSize: 20, fontWeight: 700, marginBottom: 4, letterSpacing: "0.1em" }}>
+              DAW TIMELINE
+            </h2>
+            <p style={{ color: "rgba(57,255,20,0.4)", fontSize: 11, letterSpacing: "0.2em", marginBottom: 20 }}>
+              STUDIO ARRANGEMENT VIEW
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {songSections.map((section, index) => (
-                <div key={section + "tl"} className="flex items-center gap-4">
-                  <div className="w-32 text-sm text-gray-300 shrink-0">{section}</div>
-                  <div className="flex-1 relative h-8">
-                    <div className="absolute h-full rounded-md flex items-center px-2"
+                <div key={section + "tl"} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 110, fontSize: 11, color: "#888", letterSpacing: "0.05em", flexShrink: 0 }}>
+                    {section.toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1, position: "relative", height: 28 }}>
+                    <div
+                      className="glow-bar"
                       style={{
+                        position: "absolute", height: "100%",
                         left: timelineOffsets[index] || "0%",
                         width: timelineWidths[index] || "50%",
-                        background: "linear-gradient(90deg, #16a34a, #4ade80)",
-                        boxShadow: "0 0 8px rgba(74,222,128,0.3)",
-                      }}>
-                      <span className="text-xs text-black font-semibold truncate opacity-70">
+                        background: "linear-gradient(90deg, #1a3a1a, #39ff14)",
+                        borderRadius: 6,
+                        display: "flex", alignItems: "center", paddingLeft: 8,
+                      }}
+                    >
+                      <span style={{ fontSize: 10, color: "#000", fontWeight: 700, opacity: 0.8 }}>
                         {section}
                       </span>
                     </div>
@@ -191,26 +285,47 @@ export default function App() {
           </div>
 
           {/* Bottom Cards */}
-          <div className="grid md:grid-cols-3 gap-6 mt-8">
-            <div className="bg-zinc-900 rounded-2xl p-6 border border-gray-800">
-              <h2 className="text-xl font-bold mb-3">Notes</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
+            <div style={{
+              borderRadius: 16, padding: 20,
+              background: "linear-gradient(145deg, #0a0f0a, #111811)",
+              border: "1px solid rgba(57,255,20,0.25)",
+            }}>
+              <h2 className="chrome-text" style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, letterSpacing: "0.1em" }}>
+                NOTES
+              </h2>
               <textarea
-                className="w-full h-40 bg-zinc-950 p-3 rounded-xl text-sm text-gray-200 resize-none focus:outline-none focus:ring-1 focus:ring-green-500"
+                className="chrome-input"
+                style={{ height: 140, resize: "none", fontFamily: "monospace" }}
                 placeholder="Session notes..."
               />
             </div>
-            <div className="bg-zinc-900 rounded-2xl p-6 border border-gray-800">
-              <h2 className="text-xl font-bold mb-3">Tempo & Key</h2>
-              <input className="w-full mb-3 p-2 bg-zinc-950 rounded text-sm focus:outline-none focus:ring-1 focus:ring-green-500" placeholder="BPM (e.g. 120)" />
-              <input className="w-full p-2 bg-zinc-950 rounded text-sm focus:outline-none focus:ring-1 focus:ring-green-500" placeholder="Key (e.g. A minor)" />
+
+            <div style={{
+              borderRadius: 16, padding: 20,
+              background: "linear-gradient(145deg, #0a0f0a, #111811)",
+              border: "1px solid rgba(57,255,20,0.25)",
+            }}>
+              <h2 className="chrome-text" style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, letterSpacing: "0.1em" }}>
+                TEMPO & KEY
+              </h2>
+              <input className="chrome-input" style={{ marginBottom: 10 }} placeholder="BPM (e.g. 120)" />
+              <input className="chrome-input" placeholder="Key (e.g. A minor)" />
             </div>
-            <div className="bg-zinc-900 rounded-2xl p-6 border border-gray-800">
-              <h2 className="text-xl font-bold mb-3">Tips</h2>
-              <ul className="text-sm text-gray-300 space-y-2">
-                <li>🎵 Drag sections to rearrange</li>
-                <li>🟢 Green theme = active session mode</li>
-                <li>📊 Use timeline for structure flow</li>
-                <li>✅ Check instruments per section</li>
+
+            <div style={{
+              borderRadius: 16, padding: 20,
+              background: "linear-gradient(145deg, #0a0f0a, #111811)",
+              border: "1px solid rgba(57,255,20,0.25)",
+            }}>
+              <h2 className="chrome-text" style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, letterSpacing: "0.1em" }}>
+                TIPS
+              </h2>
+              <ul style={{ fontSize: 12, color: "#888", lineHeight: 2, listStyle: "none", padding: 0 }}>
+                <li><span style={{ color: "#39ff14" }}>▸</span> Drag sections to rearrange</li>
+                <li><span style={{ color: "#39ff14" }}>▸</span> Green = active session mode</li>
+                <li><span style={{ color: "#39ff14" }}>▸</span> Timeline shows structure flow</li>
+                <li><span style={{ color: "#39ff14" }}>▸</span> Check instruments per section</li>
               </ul>
             </div>
           </div>
@@ -218,7 +333,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* SPLASH — sits on top and fades away */}
+      {/* SPLASH */}
       {(phase === "loading" || phase === "fading") && (
         <div
           className={phase === "fading" ? "splash-fade" : ""}
@@ -234,12 +349,10 @@ export default function App() {
             width: "100%", height: "100%",
             objectFit: "cover", objectPosition: "center",
           }} />
-
           <div style={{
             position: "absolute", inset: 0,
             background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 50%)",
           }} />
-
           {phase === "loading" && (
             <div style={{
               position: "relative", zIndex: 2,
@@ -257,7 +370,6 @@ export default function App() {
                 width: "100%", height: 4,
                 background: "rgba(57,255,20,0.2)",
                 borderRadius: 2, overflow: "hidden",
-                boxShadow: "0 0 10px rgba(57,255,20,0.3)",
               }}>
                 <div style={{
                   height: "100%", width: `${progress}%`,
@@ -272,4 +384,4 @@ export default function App() {
       )}
     </>
   );
-      }
+            }
