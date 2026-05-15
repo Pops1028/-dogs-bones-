@@ -71,23 +71,54 @@ export default function App() {
           0%   { opacity: 1; }
           100% { opacity: 0; }
         }
-        .splash-fade {
-          animation: fadeOut 1.1s ease-in-out forwards;
-        }
+        .splash-fade { animation: fadeOut 1.1s ease-in-out forwards; }
         * { box-sizing: border-box; }
         body { background: #000; margin: 0; }
       `}</style>
 
       {/* APP — always visible underneath */}
-      <div style={{ opacity: 1 }}
-        className="min-h-screen bg-black text-white p-6">
+      <div className="min-h-screen bg-black text-white p-6">
         <div className="max-w-7xl mx-auto">
 
-          <div className="mb-8">
-            <h1 className="text-4xl font-bold mb-2">Dog Bones 🎸</h1>
-            <p className="text-gray-400">Song Section Organizer</p>
+          {/* Header */}
+          <div className="mb-8 flex items-center gap-3">
+            <div style={{
+              background: "#000",
+              borderRadius: 8,
+              overflow: "hidden",
+              width: 50,
+              height: 50,
+              flexShrink: 0,
+            }}>
+              <img
+                src="/192.png"
+                alt="Dog Bones Logo"
+                style={{
+                  width: 50,
+                  height: 50,
+                  objectFit: "contain",
+                  mixBlendMode: "screen",
+                }}
+              />
+            </div>
+            <div>
+              <h1
+                className="text-4xl font-bold mb-1"
+                style={{
+                  background: "linear-gradient(180deg, #39ff14, #1a7a00)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  fontStyle: "italic",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                DOG BONES
+              </h1>
+              <p className="text-gray-400">Song Section Organizer</p>
+            </div>
           </div>
 
+          {/* Grid Table */}
           <div className="overflow-x-auto rounded-2xl border border-gray-800 bg-zinc-900 shadow-2xl">
             <table className="w-full border-collapse">
               <thead>
@@ -131,6 +162,7 @@ export default function App() {
             </table>
           </div>
 
+          {/* DAW Timeline */}
           <div className="mt-10 bg-zinc-900 border border-gray-800 rounded-2xl p-6 shadow-2xl">
             <h2 className="text-2xl font-bold mb-2">DAW Timeline View</h2>
             <p className="text-gray-400 text-sm mb-6">Green-themed studio arrangement view</p>
@@ -156,11 +188,14 @@ export default function App() {
             </div>
           </div>
 
+          {/* Bottom Cards */}
           <div className="grid md:grid-cols-3 gap-6 mt-8">
             <div className="bg-zinc-900 rounded-2xl p-6 border border-gray-800">
               <h2 className="text-xl font-bold mb-3">Notes</h2>
-              <textarea className="w-full h-40 bg-zinc-950 p-3 rounded-xl text-sm text-gray-200 resize-none focus:outline-none focus:ring-1 focus:ring-green-500"
-                placeholder="Session notes..." />
+              <textarea
+                className="w-full h-40 bg-zinc-950 p-3 rounded-xl text-sm text-gray-200 resize-none focus:outline-none focus:ring-1 focus:ring-green-500"
+                placeholder="Session notes..."
+              />
             </div>
             <div className="bg-zinc-900 rounded-2xl p-6 border border-gray-800">
               <h2 className="text-xl font-bold mb-3">Tempo & Key</h2>
@@ -235,4 +270,4 @@ export default function App() {
       )}
     </>
   );
-                }
+      }
