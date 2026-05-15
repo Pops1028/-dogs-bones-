@@ -7,6 +7,9 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [phase, setPhase] = useState("loading");
   const [draggedIndex, setDraggedIndex] = useState(null);
+  const [editingIndex, setEditingIndex] = useState(null);
+  const [editingValue, setEditingValue] = useState("");
+  const [newSection, setNewSection] = useState("");
 
   const [songSections, setSongSections] = useState([
     "Intro", "Pre-Verse", "Verse", "Chorus", "Between Verse",
@@ -57,12 +60,41 @@ export default function App() {
     setDraggedIndex(null);
   };
 
+  const addSection = () => {
+    if (!newSection.trim()) return;
+    setSongSections((prev) => [...prev, newSection.trim()]);
+    setNewSection("");
+  };
+
+  const removeSection = (index) => {
+    setSongSections((prev) => prev.filter((_, i) => i !== index));
+    const newChecked = {};
+    Object.entries(checked).forEach(([key, val]) => {
+      const [r, c] = key.split("-").map(Number);
+      if (r !== index) {
+        const newRow = r > index ? r - 1 : r;
+        newChecked[`${newRow}-${c}`] = val;
+      }
+    });
+    setChecked(newChecked);
+  };
+
+  const startEdit = (index) => {
+    setEditingIndex(index);
+    setEditingValue(songSections[index]);
+  };
+
+  const saveEdit = () => {
+    if (!editingValue.trim()) return;
+    const updated = [...songSections];
+    updated[editingIndex] = editingValue.trim();
+    setSongSections(updated);
+    setEditingIndex(null);
+    setEditingValue("");
+  };
+
   const timelineWidths = ["15%","20%","55%","70%","25%","55%","35%","30%","20%","60%"];
   const timelineOffsets = ["0%","10%","0%","5%","15%","0%","10%","20%","5%","0%"];
-
-  const chrome = "linear-gradient(180deg, #e8e8e8 0%, #a0a0a0 30%, #39ff14 60%, #1a7a00 100%)";
-  const chromeBorder = "1px solid rgba(57,255,20,0.3)";
-  const cardBg = "linear-gradient(145deg, #0a0a0a, #111411)";
 
   return (
     <>
@@ -79,29 +111,13 @@ export default function App() {
         .splash-fade { animation: fadeOut 1.1s ease-in-out forwards; }
         * { box-sizing: border-box; }
         body { background: #000; margin: 0; }
-
         .chrome-text {
           background: linear-gradient(180deg, #ffffff 0%, #aaaaaa 30%, #39ff14 65%, #1a7a00 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
         }
-        .chrome-card {
-          background: linear-gradient(145deg, #0a0f0a, #111811);
-          border: 1px solid rgba(57,255,20,0.25);
-          box-shadow: 0 0 20px rgba(57,255,20,0.05), inset 0 1px 0 rgba(255,255,255,0.05);
-        }
-        .chrome-header {
-          background: linear-gradient(180deg, #1a1a1a 0%, #0a0f0a 100%);
-          border-bottom: 1px solid rgba(57,255,20,0.3);
-        }
-        .chrome-row:hover {
-          background: linear-gradient(90deg, rgba(57,255,20,0.05), transparent) !important;
-        }
-        .chrome-row-dragging {
-          opacity: 0.4;
-          background: rgba(57,255,20,0.1) !important;
-        }
+        .chrome-row:hover { background: rgba(57,255,20,0.04) !important; }
         .chrome-input {
           background: #050a05;
           border: 1px solid rgba(57,255,20,0.2);
@@ -110,19 +126,41 @@ export default function App() {
           padding: 8px 12px;
           width: 100%;
           outline: none;
+          font-size: 13px;
         }
         .chrome-input:focus {
           border-color: rgba(57,255,20,0.6);
           box-shadow: 0 0 8px rgba(57,255,20,0.2);
         }
-        .chrome-checkbox {
-          accent-color: #39ff14;
-          width: 18px;
-          height: 18px;
+        .chrome-checkbox { accent-color: #39ff14; width: 18px; height: 18px; cursor: pointer; }
+        .glow-bar { box-shadow: 0 0 10px rgba(57,255,20,0.5), 0 0 20px rgba(57,255,20,0.2); }
+        .icon-btn {
+          background: none;
+          border: none;
           cursor: pointer;
+          padding: 4px 6px;
+          border-radius: 6px;
+          font-size: 14px;
+          line-height: 1;
+          transition: background 0.15s;
         }
-        .glow-bar {
-          box-shadow: 0 0 10px rgba(57,255,20,0.5), 0 0 20px rgba(57,255,20,0.2);
+        .icon-btn:hover { background: rgba(57,255,20,0.1); }
+        .add-btn {
+          background: linear-gradient(135deg, #1a3a1a, #0a1a0a);
+          border: 1px solid rgba(57,255,20,0.4);
+          color: #39ff14;
+          border-radius: 8px;
+          padding: 8px 16px;
+          cursor: pointer;
+          font-size: 13px;
+          font-weight: 700;
+          letter-spacing: 0.1em;
+          transition: all 0.2s;
+          white-space: nowrap;
+        }
+        .add-btn:hover {
+          background: linear-gradient(135deg, #2a5a2a, #1a3a1a);
+          box-shadow: 0 0 12px rgba(57,255,20,0.3);
         }
       `}</style>
 
@@ -144,26 +182,37 @@ export default function App() {
               border: "1px solid rgba(57,255,20,0.3)",
               boxShadow: "0 0 12px rgba(57,255,20,0.2)",
             }}>
-              <img
-                src="/launchericon-192x192.png"
-                alt="Logo"
-                style={{ width: 60, height: 60, objectFit: "cover", mixBlendMode: "screen" }}
-              />
+              <img src="/launchericon-192x192.png" alt="Logo"
+                style={{ width: 60, height: 60, objectFit: "cover", mixBlendMode: "screen" }} />
             </div>
             <div style={{ flex: 1 }}>
-              <img
-                src={LOGO_TEXT}
-                alt="Dog Bones"
+              <img src={LOGO_TEXT} alt="Dog Bones"
                 style={{
                   width: "100%", maxWidth: 280, height: 55,
                   objectFit: "cover", objectPosition: "center",
                   mixBlendMode: "screen", display: "block",
-                }}
-              />
+                }} />
               <p style={{ color: "rgba(57,255,20,0.5)", fontSize: 11, letterSpacing: "0.3em", marginTop: 2 }}>
                 SONG SECTION ORGANIZER
               </p>
             </div>
+          </div>
+
+          {/* Add New Section */}
+          <div style={{
+            display: "flex", gap: 10, marginBottom: 16,
+            padding: "16px 20px", borderRadius: 16,
+            background: "linear-gradient(145deg, #0a0f0a, #111811)",
+            border: "1px solid rgba(57,255,20,0.25)",
+          }}>
+            <input
+              className="chrome-input"
+              placeholder="New section name..."
+              value={newSection}
+              onChange={(e) => setNewSection(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addSection()}
+            />
+            <button className="add-btn" onClick={addSection}>+ ADD</button>
           </div>
 
           {/* Grid Table */}
@@ -177,57 +226,79 @@ export default function App() {
               <thead>
                 <tr style={{ background: "linear-gradient(180deg, #111811, #0a0f0a)" }}>
                   <th style={{
-                    padding: "14px 16px",
-                    borderBottom: "1px solid rgba(57,255,20,0.3)",
-                    textAlign: "left", minWidth: 160,
-                    position: "sticky", left: 0,
-                    background: "#111811",
-                    fontSize: 12, letterSpacing: "0.15em",
+                    padding: "14px 16px", borderBottom: "1px solid rgba(57,255,20,0.3)",
+                    textAlign: "left", minWidth: 200, position: "sticky", left: 0,
+                    background: "#111811", fontSize: 11, letterSpacing: "0.15em",
                     background: "linear-gradient(180deg, #ffffff 0%, #aaaaaa 30%, #39ff14 65%, #1a7a00 100%)",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
+                    WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
                   }}>
                     SONG SECTION
                   </th>
                   {instruments.map((inst) => (
                     <th key={inst} style={{
-                      padding: "14px 16px",
-                      borderBottom: "1px solid rgba(57,255,20,0.3)",
+                      padding: "14px 16px", borderBottom: "1px solid rgba(57,255,20,0.3)",
                       textAlign: "center", whiteSpace: "nowrap",
                       fontSize: 11, letterSpacing: "0.1em",
                       background: "linear-gradient(180deg, #ffffff 0%, #aaaaaa 30%, #39ff14 65%, #1a7a00 100%)",
-                      WebkitBackgroundClip: "text",
-                      WebkitTextFillColor: "transparent",
+                      WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
                     }}>
                       {inst.toUpperCase()}
                     </th>
                   ))}
+                  <th style={{
+                    padding: "14px 16px", borderBottom: "1px solid rgba(57,255,20,0.3)",
+                    textAlign: "center", fontSize: 11, letterSpacing: "0.1em",
+                    background: "linear-gradient(180deg, #ffffff 0%, #aaaaaa 30%, #39ff14 65%, #1a7a00 100%)",
+                    WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+                  }}>
+                    EDIT
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {songSections.map((section, rowIndex) => (
                   <tr
-                    key={section}
+                    key={section + rowIndex}
                     draggable
                     onDragStart={() => handleDragStart(rowIndex)}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={() => handleDrop(rowIndex)}
-                    className={`chrome-row ${draggedIndex === rowIndex ? "chrome-row-dragging" : ""}`}
-                    style={{ cursor: "grab", borderBottom: "1px solid rgba(57,255,20,0.1)" }}
+                    className="chrome-row"
+                    style={{
+                      cursor: "grab",
+                      borderBottom: "1px solid rgba(57,255,20,0.1)",
+                      opacity: draggedIndex === rowIndex ? 0.4 : 1,
+                    }}
                   >
                     <td style={{
-                      padding: "12px 16px", fontWeight: 600,
-                      position: "sticky", left: 0,
-                      background: "#080d08",
+                      padding: "10px 16px", fontWeight: 600,
+                      position: "sticky", left: 0, background: "#080d08",
                       color: "#aaa", fontSize: 13,
                     }}>
-                      <span style={{ color: "rgba(57,255,20,0.4)", marginRight: 8 }}>☰</span>
-                      {section}
+                      {editingIndex === rowIndex ? (
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <input
+                            className="chrome-input"
+                            style={{ padding: "4px 8px", fontSize: 13 }}
+                            value={editingValue}
+                            onChange={(e) => setEditingValue(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && saveEdit()}
+                            autoFocus
+                          />
+                          <button className="icon-btn" onClick={saveEdit} style={{ color: "#39ff14" }}>✓</button>
+                          <button className="icon-btn" onClick={() => setEditingIndex(null)} style={{ color: "#666" }}>✕</button>
+                        </div>
+                      ) : (
+                        <>
+                          <span style={{ color: "rgba(57,255,20,0.4)", marginRight: 8 }}>☰</span>
+                          {section}
+                        </>
+                      )}
                     </td>
                     {instruments.map((_, colIndex) => {
                       const key = `${rowIndex}-${colIndex}`;
                       return (
-                        <td key={colIndex} style={{ padding: "12px 16px", textAlign: "center" }}>
+                        <td key={colIndex} style={{ padding: "10px 16px", textAlign: "center" }}>
                           <input
                             type="checkbox"
                             className="chrome-checkbox"
@@ -237,6 +308,12 @@ export default function App() {
                         </td>
                       );
                     })}
+                    <td style={{ padding: "10px 16px", textAlign: "center", whiteSpace: "nowrap" }}>
+                      <button className="icon-btn" onClick={() => startEdit(rowIndex)}
+                        style={{ color: "#39ff14", marginRight: 4 }} title="Rename">✏️</button>
+                      <button className="icon-btn" onClick={() => removeSection(rowIndex)}
+                        style={{ color: "#ff4444" }} title="Delete">🗑️</button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -248,7 +325,6 @@ export default function App() {
             borderRadius: 16, padding: 24, marginBottom: 24,
             background: "linear-gradient(145deg, #0a0f0a, #111811)",
             border: "1px solid rgba(57,255,20,0.25)",
-            boxShadow: "0 0 30px rgba(57,255,20,0.05)",
           }}>
             <h2 className="chrome-text" style={{ fontSize: 20, fontWeight: 700, marginBottom: 4, letterSpacing: "0.1em" }}>
               DAW TIMELINE
@@ -263,17 +339,13 @@ export default function App() {
                     {section.toUpperCase()}
                   </div>
                   <div style={{ flex: 1, position: "relative", height: 28 }}>
-                    <div
-                      className="glow-bar"
-                      style={{
-                        position: "absolute", height: "100%",
-                        left: timelineOffsets[index] || "0%",
-                        width: timelineWidths[index] || "50%",
-                        background: "linear-gradient(90deg, #1a3a1a, #39ff14)",
-                        borderRadius: 6,
-                        display: "flex", alignItems: "center", paddingLeft: 8,
-                      }}
-                    >
+                    <div className="glow-bar" style={{
+                      position: "absolute", height: "100%",
+                      left: timelineOffsets[index % timelineOffsets.length] || "0%",
+                      width: timelineWidths[index % timelineWidths.length] || "50%",
+                      background: "linear-gradient(90deg, #1a3a1a, #39ff14)",
+                      borderRadius: 6, display: "flex", alignItems: "center", paddingLeft: 8,
+                    }}>
                       <span style={{ fontSize: 10, color: "#000", fontWeight: 700, opacity: 0.8 }}>
                         {section}
                       </span>
@@ -294,13 +366,9 @@ export default function App() {
               <h2 className="chrome-text" style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, letterSpacing: "0.1em" }}>
                 NOTES
               </h2>
-              <textarea
-                className="chrome-input"
-                style={{ height: 140, resize: "none", fontFamily: "monospace" }}
-                placeholder="Session notes..."
-              />
+              <textarea className="chrome-input" style={{ height: 140, resize: "none", fontFamily: "monospace" }}
+                placeholder="Session notes..." />
             </div>
-
             <div style={{
               borderRadius: 16, padding: 20,
               background: "linear-gradient(145deg, #0a0f0a, #111811)",
@@ -312,7 +380,6 @@ export default function App() {
               <input className="chrome-input" style={{ marginBottom: 10 }} placeholder="BPM (e.g. 120)" />
               <input className="chrome-input" placeholder="Key (e.g. A minor)" />
             </div>
-
             <div style={{
               borderRadius: 16, padding: 20,
               background: "linear-gradient(145deg, #0a0f0a, #111811)",
@@ -323,9 +390,9 @@ export default function App() {
               </h2>
               <ul style={{ fontSize: 12, color: "#888", lineHeight: 2, listStyle: "none", padding: 0 }}>
                 <li><span style={{ color: "#39ff14" }}>▸</span> Drag sections to rearrange</li>
-                <li><span style={{ color: "#39ff14" }}>▸</span> Green = active session mode</li>
-                <li><span style={{ color: "#39ff14" }}>▸</span> Timeline shows structure flow</li>
-                <li><span style={{ color: "#39ff14" }}>▸</span> Check instruments per section</li>
+                <li><span style={{ color: "#39ff14" }}>▸</span> ✏️ to rename a section</li>
+                <li><span style={{ color: "#39ff14" }}>▸</span> 🗑️ to delete a section</li>
+                <li><span style={{ color: "#39ff14" }}>▸</span> Type + ADD to create new</li>
               </ul>
             </div>
           </div>
@@ -384,4 +451,4 @@ export default function App() {
       )}
     </>
   );
-            }
+                            }
