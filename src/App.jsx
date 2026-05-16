@@ -65,27 +65,25 @@ export default function App() {
   const [screen,            setScreen]            = useState("songs");
   const [activeTab,         setActiveTab]         = useState(0);
   const [notesOpen,         setNotesOpen]         = useState(false);
+  const [projects,          setProjects]          = useState(() => load(STORAGE_KEY, [makeProject(0,"My First Song","#39ff14")]));
+  const [activeProject,     setActiveProject]     = useState(() => load(STORAGE_AP, 0));
+  const [newProjectName,    setNewProjectName]    = useState("");
+  const [editingProjectName,setEditingProjectName]= useState(false);
+  const [projectNameValue,  setProjectNameValue]  = useState("");
+  const [editingSongName,   setEditingSongName]   = useState(false);
+  const [songNameValue,     setSongNameValue]     = useState("");
+  const [editingProjectSong,setEditingProjectSong]= useState(false);
+  const [projectSongValue,  setProjectSongValue]  = useState("");
+  const [draggedIndex,      setDraggedIndex]      = useState(null);
+  const [draggedSetlist,    setDraggedSetlist]    = useState(null);
+  const [editingIndex,      setEditingIndex]      = useState(null);
+  const [editingValue,      setEditingValue]      = useState("");
+  const [newSection,        setNewSection]        = useState("");
+  const [newInstrument,     setNewInstrument]     = useState("");
+  const [colorPickerOpen,   setColorPickerOpen]   = useState(false);
+  const [instrPanelOpen,    setInstrPanelOpen]    = useState(false);
 
-  const [projects,      setProjects]      = useState(() => load(STORAGE_KEY, [makeProject(0,"My First Song","#39ff14")]));
-  const [activeProject, setActiveProject] = useState(() => load(STORAGE_AP, 0));
-
-  const [newProjectName,     setNewProjectName]     = useState("");
-  const [editingProjectName, setEditingProjectName] = useState(false);
-  const [projectNameValue,   setProjectNameValue]   = useState("");
-  const [editingSongName,    setEditingSongName]    = useState(false);
-  const [songNameValue,      setSongNameValue]      = useState("");
-  const [editingProjectSong, setEditingProjectSong] = useState(false);
-  const [projectSongValue,   setProjectSongValue]   = useState("");
-  const [draggedIndex,       setDraggedIndex]       = useState(null);
-  const [draggedSetlist,     setDraggedSetlist]     = useState(null);
-  const [editingIndex,       setEditingIndex]       = useState(null);
-  const [editingValue,       setEditingValue]       = useState("");
-  const [newSection,         setNewSection]         = useState("");
-  const [newInstrument,      setNewInstrument]      = useState("");
-  const [colorPickerOpen,    setColorPickerOpen]    = useState(false);
-  const [instrPanelOpen,     setInstrPanelOpen]     = useState(false);
-
-  useEffect(() => { save(STORAGE_KEY, projects);     }, [projects]);
+  useEffect(() => { save(STORAGE_KEY, projects);      }, [projects]);
   useEffect(() => { save(STORAGE_AP,  activeProject); }, [activeProject]);
 
   useEffect(() => {
@@ -118,8 +116,7 @@ export default function App() {
       songs: p.songs.map(s => s.id===songId ? {...s,...fn(s)} : s)
     }));
 
-  // ── SHARED CHECKS ──
-  const ckKey = (sectionName, colIndex) => `${sectionName}--${colIndex}`;
+  const ckKey = (sn, ci) => `${sn}--${ci}`;
 
   const toggleChecked = (sectionName, colIndex, songId) => {
     const rowIndex = song.sections.indexOf(sectionName);
@@ -127,69 +124,50 @@ export default function App() {
     const k = ckKey(sectionName, colIndex);
     updateProject(project.id, p => {
       const cur = Array.isArray(p.checks?.[k]) ? p.checks[k] : [];
-      return {
-        checks: {
-          ...p.checks,
-          [k]: cur.includes(songId) ? cur.filter(id=>id!==songId) : [...cur, songId]
-        }
-      };
+      return { checks: { ...p.checks, [k]: cur.includes(songId) ? cur.filter(id=>id!==songId) : [...cur,songId] } };
     });
   };
 
-  const getColors = (sectionName, colIndex) => {
-    const k = ckKey(sectionName, colIndex);
+  const getColors = (sn, ci) => {
+    const k = ckKey(sn, ci);
     return (Array.isArray(project.checks?.[k]) ? project.checks[k] : [])
-      .map(id => project.songs.find(s=>s.id===id)?.color)
-      .filter(Boolean);
+      .map(id => project.songs.find(s=>s.id===id)?.color).filter(Boolean);
   };
 
-  const isMine = (sectionName, colIndex, songId) => {
-    const k = ckKey(sectionName, colIndex);
+  const isMine = (sn, ci, songId) => {
+    const k = ckKey(sn, ci);
     return Array.isArray(project.checks?.[k]) && project.checks[k].includes(songId);
   };
 
-  // ── INSTRUMENTS ──
   const addInstrument = () => {
-    if (!newInstrument.trim()) return;
-    if (instruments.includes(newInstrument.trim())) return;
-    updateProject(project.id, p => ({
-      instruments: [...(p.instruments||DEFAULT_INSTRUMENTS), newInstrument.trim()]
-    }));
+    if (!newInstrument.trim() || instruments.includes(newInstrument.trim())) return;
+    updateProject(project.id, p => ({ instruments: [...(p.instruments||DEFAULT_INSTRUMENTS), newInstrument.trim()] }));
     setNewInstrument("");
   };
 
-  const removeInstrument = (inst) => {
-    updateProject(project.id, p => ({
-      instruments: (p.instruments||DEFAULT_INSTRUMENTS).filter(i=>i!==inst)
-    }));
-  };
+  const removeInstrument = inst =>
+    updateProject(project.id, p => ({ instruments: (p.instruments||DEFAULT_INSTRUMENTS).filter(i=>i!==inst) }));
 
-  // ── SECTIONS ──
   const toggleLocked  = ri => updateSong(song.id, s=>({locked:{...s.locked,[ri]:!s.locked?.[ri]}}));
   const toggleStarred = ri => updateSong(song.id, s=>({starred:{...s.starred,[ri]:!s.starred?.[ri]}}));
   const cycleStatus   = ri => {
     if (song.locked?.[ri]) return;
     updateSong(song.id, s=>{
-      const cur = s.status?.[ri]||"Draft";
-      const next = STATUS_OPTIONS[(STATUS_OPTIONS.indexOf(cur)+1)%STATUS_OPTIONS.length];
-      return {status:{...s.status,[ri]:next}};
+      const cur=s.status?.[ri]||"Draft";
+      return {status:{...s.status,[ri]:STATUS_OPTIONS[(STATUS_OPTIONS.indexOf(cur)+1)%STATUS_OPTIONS.length]}};
     });
   };
 
   const handleDragStart = i  => setDraggedIndex(i);
   const handleDrop      = ti => {
     if (draggedIndex===null||song.locked?.[draggedIndex]) return;
-    const upd=[...song.sections];
-    const [it]=upd.splice(draggedIndex,1);
-    upd.splice(ti,0,it);
-    updateSong(song.id,()=>({sections:upd}));
-    setDraggedIndex(null);
+    const upd=[...song.sections]; const [it]=upd.splice(draggedIndex,1); upd.splice(ti,0,it);
+    updateSong(song.id,()=>({sections:upd})); setDraggedIndex(null);
   };
 
   const addSection = () => {
     if (!newSection.trim()) return;
-    updateSong(song.id, s=>({sections:[...s.sections,newSection.trim()]}));
-    setNewSection("");
+    updateSong(song.id, s=>({sections:[...s.sections,newSection.trim()]})); setNewSection("");
   };
 
   const removeSection = i => {
@@ -204,12 +182,10 @@ export default function App() {
     setEditingIndex(null);
   };
 
-  // ── PROJECTS ──
   const addProject = () => {
     if (!newProjectName.trim()) return;
-    const id    = Date.now();
-    const color = PROJECT_COLORS[projects.length % PROJECT_COLORS.length];
-    setProjects(prev=>[...prev, makeProject(id,newProjectName.trim(),color)]);
+    const id=Date.now(); const color=PROJECT_COLORS[projects.length%PROJECT_COLORS.length];
+    setProjects(prev=>[...prev,makeProject(id,newProjectName.trim(),color)]);
     setActiveProject(id); setNewProjectName(""); setMenuOpen(false); setActiveTab(0);
   };
 
@@ -220,36 +196,17 @@ export default function App() {
   };
 
   const switchProject = id => { setActiveProject(id); setMenuOpen(false); setActiveTab(0); setScreen("songs"); };
+  const saveProjectName = () => { if(!projectNameValue.trim())return; updateProject(project.id,()=>({name:projectNameValue.trim()})); setEditingProjectName(false); };
+  const saveProjectSongName = () => { if(!projectSongValue.trim())return; updateProject(project.id,()=>({songName:projectSongValue.trim()})); setEditingProjectSong(false); };
+  const saveSongName = () => { if(!songNameValue.trim())return; updateSong(song.id,()=>({name:songNameValue.trim()})); setEditingSongName(false); };
 
-  const saveProjectName = () => {
-    if (!projectNameValue.trim()) return;
-    updateProject(project.id,()=>({name:projectNameValue.trim()}));
-    setEditingProjectName(false);
-  };
-
-  const saveProjectSongName = () => {
-    if (!projectSongValue.trim()) return;
-    updateProject(project.id,()=>({songName:projectSongValue.trim()}));
-    setEditingProjectSong(false);
-  };
-
-  const saveSongName = () => {
-    if (!songNameValue.trim()) return;
-    updateSong(song.id,()=>({name:songNameValue.trim()}));
-    setEditingSongName(false);
-  };
-
-  // ── SETLIST ──
   const addToSetlist      = n  => updateProject(project.id, p=>({setlist:[...(p.setlist||[]),{id:Date.now(),name:n}]}));
   const removeFromSetlist = id => updateProject(project.id, p=>({setlist:p.setlist.filter(s=>s.id!==id)}));
   const handleSetlistDragStart = i  => setDraggedSetlist(i);
   const handleSetlistDrop      = ti => {
     if (draggedSetlist===null) return;
-    const u=[...(project.setlist||[])];
-    const [it]=u.splice(draggedSetlist,1);
-    u.splice(ti,0,it);
-    updateProject(project.id,()=>({setlist:u}));
-    setDraggedSetlist(null);
+    const u=[...(project.setlist||[])]; const [it]=u.splice(draggedSetlist,1); u.splice(ti,0,it);
+    updateProject(project.id,()=>({setlist:u})); setDraggedSetlist(null);
   };
 
   const allSections = [...new Set(project.songs.flatMap(s=>s.sections))];
@@ -289,8 +246,7 @@ export default function App() {
             <span style={{color:song.color.hex,fontWeight:700,fontSize:14,flex:1}}>{song.name} — NOTES</span>
             <button onClick={()=>setNotesOpen(false)} style={{background:`${song.color.hex}22`,border:`1px solid ${song.color.hex}66`,color:song.color.hex,borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:12,fontWeight:700}}>↙ COLLAPSE</button>
           </div>
-          <textarea className="chrome-input"
-            style={{flex:1,resize:"none",fontFamily:"monospace",fontSize:14,border:"none",borderRadius:0,padding:"20px",lineHeight:1.7}}
+          <textarea className="chrome-input" style={{flex:1,resize:"none",fontFamily:"monospace",fontSize:14,border:"none",borderRadius:0,padding:"20px",lineHeight:1.7}}
             placeholder="Session notes..." value={song.notes}
             onChange={e=>updateSong(song.id,()=>({notes:e.target.value}))} autoFocus/>
         </div>
@@ -311,11 +267,11 @@ export default function App() {
 
             <div style={{flex:1,overflowY:"auto",padding:"12px 0"}}>
               {projects.map(p=>(
-                <div key={p.id} style={{
+                <div key={p.id} onClick={()=>switchProject(p.id)} style={{
                   display:"flex",alignItems:"center",gap:8,padding:"12px 16px",cursor:"pointer",
                   background:p.id===activeProject?`${p.color}11`:"transparent",
                   borderLeft:p.id===activeProject?`3px solid ${p.color}`:"3px solid transparent",
-                }} onClick={()=>switchProject(p.id)}>
+                }}>
                   <div style={{width:10,height:10,borderRadius:"50%",background:p.color,flexShrink:0,boxShadow:`0 0 6px ${p.color}`}}/>
                   <div style={{flex:1,overflow:"hidden"}}>
                     <div style={{fontSize:13,fontWeight:600,color:p.id===activeProject?p.color:"#aaa",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
@@ -331,9 +287,8 @@ export default function App() {
             <div style={{padding:"12px 16px",borderTop:`1px solid ${projectColor}22`,background:"#0a0f0a"}}>
               <p style={{color:"#666",fontSize:10,letterSpacing:"0.2em",marginBottom:8}}>NEW PROJECT</p>
               <div style={{display:"flex",gap:8}}>
-                <input className="chrome-input" placeholder="Project name..."
-                  value={newProjectName} onChange={e=>setNewProjectName(e.target.value)}
-                  onKeyDown={e=>e.key==="Enter"&&addProject()} style={{fontSize:12}}/>
+                <input className="chrome-input" placeholder="Project name..." value={newProjectName}
+                  onChange={e=>setNewProjectName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addProject()} style={{fontSize:12}}/>
                 <button onClick={addProject} style={{background:`${projectColor}22`,border:`1px solid ${projectColor}66`,color:projectColor,borderRadius:8,padding:"6px 12px",cursor:"pointer",fontSize:13,fontWeight:700,whiteSpace:"nowrap"}}>+ ADD</button>
               </div>
             </div>
@@ -360,7 +315,6 @@ export default function App() {
 
             <img src={LOGO_TEXT} alt="Dog Bones" style={{height:36,objectFit:"contain",mixBlendMode:"screen",flexShrink:0}}/>
 
-            {/* Project name + song name stacked */}
             <div style={{flex:1,overflow:"hidden"}}>
               {editingProjectName?(
                 <div style={{display:"flex",gap:4}}>
@@ -377,13 +331,11 @@ export default function App() {
                     <span style={{color:projectColor,fontWeight:700,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{project?.name}</span>
                     <button className="icon-btn" onClick={()=>{setEditingProjectName(true);setProjectNameValue(project.name);}} style={{color:`${projectColor}66`,fontSize:10,flexShrink:0}}>✏️</button>
                   </div>
-                  {/* Song name field */}
                   {editingProjectSong?(
                     <div style={{display:"flex",gap:4,marginTop:3}}>
                       <input className="chrome-input" style={{padding:"3px 8px",fontSize:11,borderColor:`${projectColor}44`}}
                         value={projectSongValue} onChange={e=>setProjectSongValue(e.target.value)}
-                        onKeyDown={e=>e.key==="Enter"&&saveProjectSongName()} autoFocus
-                        placeholder="Song name..."/>
+                        onKeyDown={e=>e.key==="Enter"&&saveProjectSongName()} autoFocus placeholder="Song name..."/>
                       <button className="icon-btn" onClick={saveProjectSongName} style={{color:projectColor,fontSize:11}}>✓</button>
                       <button className="icon-btn" onClick={()=>setEditingProjectSong(false)} style={{color:"#666",fontSize:11}}>✕</button>
                     </div>
@@ -410,8 +362,8 @@ export default function App() {
               )}
             </div>
 
-            <div style={{width:40,height:40,borderRadius:8,overflow:"hidden",border:`1px solid ${projectColor}44`,flexShrink:0}}>
-              <img src="/launchericon-192x192.png" alt="Logo" style={{width:40,height:40,objectFit:"cover",mixBlendMode:"screen",filter:"sepia(1) saturate(3) hue-rotate(70deg) brightness(0.9)"}}/>
+            <div style={{width:40,height:40,borderRadius:8,overflow:"hidden",border:`1px solid ${projectColor}44`,flexShrink:0,boxShadow:`0 0 10px ${projectColor}44`}}>
+              <img src="/launchericon-192x192.png" alt="Logo" style={{width:40,height:40,objectFit:"cover",mixBlendMode:"screen",filter:"sepia(1) saturate(3) hue-rotate(70deg) brightness(1.2)"}}/>
             </div>
           </div>
 
@@ -538,29 +490,41 @@ export default function App() {
                     )}
                   </div>
 
-                  {/* Add Section + Manage Instruments */}
+                  {/* Add Section + Instruments Button */}
                   <div style={{display:"flex",gap:8,marginBottom:10}}>
                     <div style={{flex:1,display:"flex",gap:8,padding:"10px 14px",borderRadius:12,background:"linear-gradient(145deg,#0a0f0a,#111811)",border:`1px solid ${song.color.hex}33`}}>
-                      <input className="chrome-input" placeholder="New section..." value={newSection} onChange={e=>setNewSection(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addSection()} style={{borderColor:`${song.color.hex}33`,fontSize:12}}/>
+                      <input className="chrome-input" placeholder="New section..." value={newSection}
+                        onChange={e=>setNewSection(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addSection()}
+                        style={{borderColor:`${song.color.hex}33`,fontSize:12}}/>
                       <button onClick={addSection} style={{background:`${song.color.hex}22`,border:`1px solid ${song.color.hex}66`,color:song.color.hex,borderRadius:8,padding:"6px 12px",cursor:"pointer",fontSize:12,fontWeight:700,whiteSpace:"nowrap"}}>+ ADD</button>
                     </div>
+
+                    {/* Instruments Button — glowing green chrome logo */}
                     <button onClick={()=>setInstrPanelOpen(!instrPanelOpen)} style={{
-                      background:instrPanelOpen?`${projectColor}22`:"#0a0f0a",
-                      border:`1px solid ${instrPanelOpen?projectColor+"66":"rgba(255,255,255,0.1)"}`,
-                      color:instrPanelOpen?projectColor:"#666",
-                      borderRadius:12,padding:"0 14px",cursor:"pointer",
-                      fontSize:11,fontWeight:700,whiteSpace:"nowrap",
-                    }}>🎸 INSTRU-<br/>MENTS</button>
+                      background:instrPanelOpen?`${song.color.hex}33`:`${song.color.hex}11`,
+                      border:`1px solid ${song.color.hex}${instrPanelOpen?"99":"44"}`,
+                      borderRadius:12,padding:"0 12px",cursor:"pointer",
+                      display:"flex",flexDirection:"column",alignItems:"center",
+                      justifyContent:"center",gap:3,minWidth:70,
+                      boxShadow:instrPanelOpen?`0 0 12px ${song.color.hex}66`:`0 0 6px ${song.color.hex}33`,
+                      transition:"all 0.2s",
+                    }}>
+                      <img src="/launchericon-192x192.png" style={{
+                        width:26,height:26,objectFit:"cover",
+                        mixBlendMode:"screen",
+                        filter:"sepia(1) saturate(3) hue-rotate(70deg) brightness(1.3)",
+                      }}/>
+                      <span style={{color:song.color.hex,fontSize:8,fontWeight:700,letterSpacing:"0.06em",lineHeight:1.2,textAlign:"center"}}>INSTRUMENTS</span>
+                    </button>
                   </div>
 
                   {/* Instrument Panel */}
                   {instrPanelOpen&&(
                     <div style={{marginBottom:12,padding:"14px 16px",borderRadius:14,background:"linear-gradient(145deg,#0a0f0a,#111811)",border:`1px solid ${projectColor}44`}}>
-                      <h3 style={{color:projectColor,fontSize:12,fontWeight:700,letterSpacing:"0.1em",marginBottom:10}}>🎸 MANAGE INSTRUMENTS</h3>
+                      <h3 style={{color:projectColor,fontSize:12,fontWeight:700,letterSpacing:"0.1em",marginBottom:10}}>MANAGE INSTRUMENTS</h3>
                       <div style={{display:"flex",gap:8,marginBottom:12}}>
                         <input className="chrome-input" placeholder="New instrument..." value={newInstrument}
-                          onChange={e=>setNewInstrument(e.target.value)}
-                          onKeyDown={e=>e.key==="Enter"&&addInstrument()}
+                          onChange={e=>setNewInstrument(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addInstrument()}
                           style={{borderColor:`${projectColor}33`,fontSize:12}}/>
                         <button onClick={addInstrument} style={{background:`${projectColor}22`,border:`1px solid ${projectColor}66`,color:projectColor,borderRadius:8,padding:"6px 12px",cursor:"pointer",fontSize:12,fontWeight:700,whiteSpace:"nowrap"}}>+ ADD</button>
                       </div>
@@ -627,9 +591,9 @@ export default function App() {
                                 )}
                               </td>
                               {instruments.map((_,ci)=>{
-                                const colors  =getColors(section,ci);
-                                const myCheck =isMine(section,ci,song.id);
-                                const others  =colors.filter(c=>c.hex!==song.color.hex);
+                                const colors =getColors(section,ci);
+                                const myCheck=isMine(section,ci,song.id);
+                                const others =colors.filter(c=>c.hex!==song.color.hex);
                                 return(
                                   <td key={ci} style={{padding:"6px 8px",textAlign:"center"}}>
                                     <div onClick={()=>!isLocked&&toggleChecked(section,ci,song.id)}
@@ -684,7 +648,7 @@ export default function App() {
                       <ul style={{fontSize:11,color:"#777",lineHeight:2,listStyle:"none",padding:0}}>
                         <li><span style={{color:song.color.hex}}>▸</span> Check box to claim a part</li>
                         <li><span style={{color:song.color.hex}}>▸</span> Dots = other songs claimed it</li>
-                        <li><span style={{color:song.color.hex}}>▸</span> 🎸 button to manage instruments</li>
+                        <li><span style={{color:song.color.hex}}>▸</span> Logo button = manage instruments</li>
                         <li><span style={{color:song.color.hex}}>▸</span> ↗ expand notes full screen</li>
                       </ul>
                     </div>
@@ -713,4 +677,4 @@ export default function App() {
       )}
     </>
   );
-    }
+}
