@@ -4,10 +4,10 @@ const SPLASH_IMG = "/Screenshot_20260514_110057_ChatGPT~2.jpg";
 const LOGO_TEXT = "/Screenshot_20260514_221551_Photos~2.jpg";
 
 const SONG_COLORS = [
-  { name: "green",  hex: "#39ff14", dim: "#1a4a00", tab: "rgba(57,255,20,0.15)"  },
-  { name: "blue",   hex: "#00cfff", dim: "#003a4a", tab: "rgba(0,207,255,0.15)"  },
-  { name: "purple", hex: "#bf5fff", dim: "#2a004a", tab: "rgba(191,95,255,0.15)" },
-  { name: "orange", hex: "#ff9500", dim: "#4a2000", tab: "rgba(255,149,0,0.15)"  },
+  { name:"green",  hex:"#39ff14", dim:"#1a4a00", tab:"rgba(57,255,20,0.15)"  },
+  { name:"blue",   hex:"#00cfff", dim:"#003a4a", tab:"rgba(0,207,255,0.15)"  },
+  { name:"purple", hex:"#bf5fff", dim:"#2a004a", tab:"rgba(191,95,255,0.15)" },
+  { name:"orange", hex:"#ff9500", dim:"#4a2000", tab:"rgba(255,149,0,0.15)"  },
 ];
 
 const PROJECT_COLORS = [
@@ -25,15 +25,14 @@ const DEFAULT_INSTRUMENTS = [
 ];
 
 const STATUS_OPTIONS = ["Draft","In Progress","Final"];
-const STATUS_COLORS = { "Draft":"#666", "In Progress":"#ff9500", "Final":"#39ff14" };
+const STATUS_COLORS  = { "Draft":"#666","In Progress":"#ff9500","Final":"#39ff14" };
 
-// Shared checks live at PROJECT level: key = "sectionName-colIndex" value = [songId, ...]
 function makeDefaultSongs() {
-  return SONG_COLORS.map((c, i) => ({
-    id: i, name: `Song ${i + 1}`, color: c,
-    sections: DEFAULT_SECTIONS,
-    status: {}, locked: {}, starred: {},
-    notes: "", bpm: "", key: "",
+  return SONG_COLORS.map((c,i) => ({
+    id:i, name:`Song ${i+1}`, color:c,
+    sections:[...DEFAULT_SECTIONS],
+    status:{}, locked:{}, starred:{},
+    notes:"", bpm:"", key:"",
   }));
 }
 
@@ -41,10 +40,14 @@ function makeProject(id, name, color) {
   return {
     id, name, color,
     songs: makeDefaultSongs(),
-    checks: {}, // shared: key="sectionName-colIndex" val=[songId,...]
+    checks: {},   // key="sectionName--colIndex"  val=[songId,...]
     setlist: [],
   };
 }
+
+// Always wipe old keys to avoid conflicts
+const STORAGE_KEY = "db_v5";
+const STORAGE_AP  = "db_ap_v5";
 
 function load(key, fallback) {
   try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
@@ -55,289 +58,265 @@ function save(key, val) {
 }
 
 export default function App() {
-  const [progress, setProgress] = useState(0);
-  const [phase, setPhase] = useState("loading");
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [screen, setScreen] = useState("songs");
-  const [activeTab, setActiveTab] = useState(0);
+  const [progress,    setProgress]    = useState(0);
+  const [phase,       setPhase]       = useState("loading");
+  const [menuOpen,    setMenuOpen]    = useState(false);
+  const [screen,      setScreen]      = useState("songs");
+  const [activeTab,   setActiveTab]   = useState(0);
+  const [notesOpen,   setNotesOpen]   = useState(false);
+
   const [projects, setProjects] = useState(() =>
-    load("db_projects2", [makeProject(0, "My First Song", "#39ff14")])
+    load(STORAGE_KEY, [makeProject(0,"My First Song","#39ff14")])
   );
-  const [activeProject, setActiveProject] = useState(() => load("db_active_project2", 0));
-  const [newProjectName, setNewProjectName] = useState("");
-  const [editingProjectName, setEditingProjectName] = useState(false);
-  const [projectNameValue, setProjectNameValue] = useState("");
-  const [editingSongName, setEditingSongName] = useState(false);
-  const [songNameValue, setSongNameValue] = useState("");
-  const [draggedIndex, setDraggedIndex] = useState(null);
-  const [draggedSetlist, setDraggedSetlist] = useState(null);
-  const [editingIndex, setEditingIndex] = useState(null);
-  const [editingValue, setEditingValue] = useState("");
-  const [newSection, setNewSection] = useState("");
-  const [colorPickerOpen, setColorPickerOpen] = useState(false);
+  const [activeProject, setActiveProject] = useState(() =>
+    load(STORAGE_AP, 0)
+  );
 
-  useEffect(() => { save("db_projects2", projects); }, [projects]);
-  useEffect(() => { save("db_active_project2", activeProject); }, [activeProject]);
+  const [newProjectName,    setNewProjectName]    = useState("");
+  const [editingProjectName,setEditingProjectName]= useState(false);
+  const [projectNameValue,  setProjectNameValue]  = useState("");
+  const [editingSongName,   setEditingSongName]   = useState(false);
+  const [songNameValue,     setSongNameValue]     = useState("");
+  const [draggedIndex,      setDraggedIndex]      = useState(null);
+  const [draggedSetlist,    setDraggedSetlist]    = useState(null);
+  const [editingIndex,      setEditingIndex]      = useState(null);
+  const [editingValue,      setEditingValue]      = useState("");
+  const [newSection,        setNewSection]        = useState("");
+  const [colorPickerOpen,   setColorPickerOpen]   = useState(false);
 
+  useEffect(() => { save(STORAGE_KEY, projects);     }, [projects]);
+  useEffect(() => { save(STORAGE_AP,  activeProject); }, [activeProject]);
+
+  // Loading splash
   useEffect(() => {
     if (phase !== "loading") return;
-    const interval = setInterval(() => {
-      setProgress((p) => {
-        if (p >= 100) {
-          clearInterval(interval);
-          setTimeout(() => setPhase("fading"), 300);
-          return 100;
-        }
+    const iv = setInterval(() => {
+      setProgress(p => {
+        if (p >= 100) { clearInterval(iv); setTimeout(()=>setPhase("fading"),300); return 100; }
         return p + 1.2;
       });
     }, 30);
-    return () => clearInterval(interval);
+    return () => clearInterval(iv);
   }, [phase]);
 
   useEffect(() => {
-    if (phase === "fading") {
-      const t = setTimeout(() => setPhase("app"), 1200);
-      return () => clearTimeout(t);
-    }
+    if (phase === "fading") { const t=setTimeout(()=>setPhase("app"),1200); return ()=>clearTimeout(t); }
   }, [phase]);
 
-  const project = projects.find((p) => p.id === activeProject) || projects[0];
-  const song = project?.songs?.[activeTab] || project?.songs?.[0];
-  const isMerge = activeTab === 4;
-  const isSetlist = screen === "setlist";
+  // Helpers
+  const project      = projects.find(p=>p.id===activeProject) || projects[0];
+  const song         = project?.songs?.[activeTab]            || project?.songs?.[0];
+  const isMerge      = activeTab === 4;
+  const isSetlist    = screen    === "setlist";
   const projectColor = project?.color || "#39ff14";
 
-  const updateProject = (id, updater) => {
-    setProjects((prev) => prev.map((p) => p.id === id ? { ...p, ...updater(p) } : p));
-  };
+  const updateProject = (id, fn) =>
+    setProjects(prev => prev.map(p => p.id===id ? {...p,...fn(p)} : p));
 
-  const updateSong = (songId, updater) => {
-    updateProject(project.id, (p) => ({
-      songs: p.songs.map((s) => s.id === songId ? { ...s, ...updater(s) } : s),
+  const updateSong = (songId, fn) =>
+    updateProject(project.id, p => ({
+      songs: p.songs.map(s => s.id===songId ? {...s,...fn(s)} : s)
     }));
-  };
 
-  // SHARED CHECK LOGIC
-  // key = "sectionName-colIndex", value = array of songIds that checked it
+  // ── SHARED CHECKS ──────────────────────────────────────────────
+  const ckKey = (sectionName, colIndex) => `${sectionName}--${colIndex}`;
+
   const toggleChecked = (sectionName, colIndex, songId) => {
-    if (song.locked?.[song.sections.indexOf(sectionName)]) return;
-    const key = `${sectionName}--${colIndex}`;
-    updateProject(project.id, (p) => {
-      const current = p.checks?.[key] || [];
-      const already = current.includes(songId);
-      const updated = already
-        ? current.filter((id) => id !== songId)
-        : [...current, songId];
-      return { checks: { ...p.checks, [key]: updated } };
-    });
-  };
-
-  const getChecksForCell = (sectionName, colIndex) => {
-    const key = `${sectionName}--${colIndex}`;
-    return (project.checks?.[key] || []).map((songId) =>
-      project.songs.find((s) => s.id === songId)?.color
-    ).filter(Boolean);
-  };
-
-  const isCellCheckedBySong = (sectionName, colIndex, songId) => {
-    const key = `${sectionName}--${colIndex}`;
-    return (project.checks?.[key] || []).includes(songId);
-  };
-
-  const toggleLocked = (rowIndex) => {
-    updateSong(song.id, (s) => ({ locked: { ...s.locked, [rowIndex]: !s.locked?.[rowIndex] } }));
-  };
-
-  const toggleStarred = (rowIndex) => {
-    updateSong(song.id, (s) => ({ starred: { ...s.starred, [rowIndex]: !s.starred?.[rowIndex] } }));
-  };
-
-  const cycleStatus = (rowIndex) => {
+    const rowIndex = song.sections.indexOf(sectionName);
     if (song.locked?.[rowIndex]) return;
-    updateSong(song.id, (s) => {
-      const current = s.status?.[rowIndex] || "Draft";
-      const next = STATUS_OPTIONS[(STATUS_OPTIONS.indexOf(current) + 1) % STATUS_OPTIONS.length];
-      return { status: { ...s.status, [rowIndex]: next } };
+    const k = ckKey(sectionName, colIndex);
+    updateProject(project.id, p => {
+      const cur     = Array.isArray(p.checks?.[k]) ? p.checks[k] : [];
+      const already = cur.includes(songId);
+      return {
+        checks: {
+          ...p.checks,
+          [k]: already ? cur.filter(id=>id!==songId) : [...cur, songId]
+        }
+      };
     });
   };
 
-  const handleDragStart = (index) => setDraggedIndex(index);
-  const handleDrop = (targetIndex) => {
-    if (draggedIndex === null || song.locked?.[draggedIndex]) return;
-    const updated = [...song.sections];
-    const item = updated[draggedIndex];
-    updated.splice(draggedIndex, 1);
-    updated.splice(targetIndex, 0, item);
-    updateSong(song.id, () => ({ sections: updated }));
+  const getColors = (sectionName, colIndex) => {
+    const k = ckKey(sectionName, colIndex);
+    return (Array.isArray(project.checks?.[k]) ? project.checks[k] : [])
+      .map(id => project.songs.find(s=>s.id===id)?.color)
+      .filter(Boolean);
+  };
+
+  const isMine = (sectionName, colIndex, songId) => {
+    const k = ckKey(sectionName, colIndex);
+    return Array.isArray(project.checks?.[k]) && project.checks[k].includes(songId);
+  };
+  // ───────────────────────────────────────────────────────────────
+
+  const toggleLocked  = ri => updateSong(song.id, s=>({locked:{...s.locked,[ri]:!s.locked?.[ri]}}));
+  const toggleStarred = ri => updateSong(song.id, s=>({starred:{...s.starred,[ri]:!s.starred?.[ri]}}));
+  const cycleStatus   = ri => {
+    if (song.locked?.[ri]) return;
+    updateSong(song.id, s=>{
+      const cur  = s.status?.[ri]||"Draft";
+      const next = STATUS_OPTIONS[(STATUS_OPTIONS.indexOf(cur)+1)%STATUS_OPTIONS.length];
+      return {status:{...s.status,[ri]:next}};
+    });
+  };
+
+  const handleDragStart = i  => setDraggedIndex(i);
+  const handleDrop      = ti => {
+    if (draggedIndex===null||song.locked?.[draggedIndex]) return;
+    const upd=[...song.sections];
+    const [it]=upd.splice(draggedIndex,1);
+    upd.splice(ti,0,it);
+    updateSong(song.id,()=>({sections:upd}));
     setDraggedIndex(null);
   };
 
   const addSection = () => {
     if (!newSection.trim()) return;
-    updateSong(song.id, (s) => ({ sections: [...s.sections, newSection.trim()] }));
+    updateSong(song.id, s=>({sections:[...s.sections,newSection.trim()]}));
     setNewSection("");
   };
 
-  const removeSection = (index) => {
-    if (song.locked?.[index]) return;
-    updateSong(song.id, (s) => ({
-      sections: s.sections.filter((_, i) => i !== index),
-    }));
+  const removeSection = i => {
+    if (song.locked?.[i]) return;
+    updateSong(song.id, s=>({sections:s.sections.filter((_,idx)=>idx!==i)}));
   };
 
-  const startEdit = (index) => {
-    if (song.locked?.[index]) return;
-    setEditingIndex(index);
-    setEditingValue(song.sections[index]);
-  };
-
-  const saveEdit = () => {
+  const startEdit = i => { if(song.locked?.[i])return; setEditingIndex(i); setEditingValue(song.sections[i]); };
+  const saveEdit  = () => {
     if (!editingValue.trim()) return;
-    updateSong(song.id, (s) => {
-      const updated = [...s.sections];
-      updated[editingIndex] = editingValue.trim();
-      return { sections: updated };
-    });
+    updateSong(song.id, s=>{const u=[...s.sections];u[editingIndex]=editingValue.trim();return{sections:u};});
     setEditingIndex(null);
   };
 
   const addProject = () => {
     if (!newProjectName.trim()) return;
-    const id = Date.now();
+    const id    = Date.now();
     const color = PROJECT_COLORS[projects.length % PROJECT_COLORS.length];
-    setProjects((prev) => [...prev, makeProject(id, newProjectName.trim(), color)]);
-    setActiveProject(id);
-    setNewProjectName("");
-    setMenuOpen(false);
-    setActiveTab(0);
+    setProjects(prev=>[...prev, makeProject(id,newProjectName.trim(),color)]);
+    setActiveProject(id); setNewProjectName(""); setMenuOpen(false); setActiveTab(0);
   };
 
-  const deleteProject = (id) => {
-    if (projects.length === 1) return;
-    setProjects((prev) => prev.filter((p) => p.id !== id));
-    if (activeProject === id) setActiveProject(projects[0].id);
+  const deleteProject = id => {
+    if (projects.length===1) return;
+    setProjects(prev=>prev.filter(p=>p.id!==id));
+    if (activeProject===id) setActiveProject(projects[0].id);
   };
 
-  const switchProject = (id) => {
-    setActiveProject(id);
-    setMenuOpen(false);
-    setActiveTab(0);
-    setScreen("songs");
-  };
+  const switchProject = id => { setActiveProject(id); setMenuOpen(false); setActiveTab(0); setScreen("songs"); };
 
   const saveProjectName = () => {
     if (!projectNameValue.trim()) return;
-    updateProject(project.id, () => ({ name: projectNameValue.trim() }));
+    updateProject(project.id,()=>({name:projectNameValue.trim()}));
     setEditingProjectName(false);
   };
 
   const saveSongName = () => {
     if (!songNameValue.trim()) return;
-    updateSong(song.id, () => ({ name: songNameValue.trim() }));
+    updateSong(song.id,()=>({name:songNameValue.trim()}));
     setEditingSongName(false);
   };
 
-  const addToSetlist = (songName) => {
-    updateProject(project.id, (p) => ({
-      setlist: [...(p.setlist || []), { id: Date.now(), name: songName }],
-    }));
-  };
-
-  const removeFromSetlist = (id) => {
-    updateProject(project.id, (p) => ({
-      setlist: p.setlist.filter((s) => s.id !== id),
-    }));
-  };
-
-  const handleSetlistDragStart = (index) => setDraggedSetlist(index);
-  const handleSetlistDrop = (targetIndex) => {
-    if (draggedSetlist === null) return;
-    const updated = [...(project.setlist || [])];
-    const item = updated[draggedSetlist];
-    updated.splice(draggedSetlist, 1);
-    updated.splice(targetIndex, 0, item);
-    updateProject(project.id, () => ({ setlist: updated }));
+  const addToSetlist     = n  => updateProject(project.id, p=>({setlist:[...(p.setlist||[]),{id:Date.now(),name:n}]}));
+  const removeFromSetlist= id => updateProject(project.id, p=>({setlist:p.setlist.filter(s=>s.id!==id)}));
+  const handleSetlistDragStart = i  => setDraggedSetlist(i);
+  const handleSetlistDrop      = ti => {
+    if (draggedSetlist===null) return;
+    const u=[...(project.setlist||[])];
+    const [it]=u.splice(draggedSetlist,1);
+    u.splice(ti,0,it);
+    updateProject(project.id,()=>({setlist:u}));
     setDraggedSetlist(null);
   };
 
-  const allSections = [...new Set(project.songs.flatMap((s) => s.sections))];
+  const allSections = [...new Set(project.songs.flatMap(s=>s.sections))];
 
   return (
     <>
       <style>{`
-        @keyframes pulse-glow {
-          0%,100%{text-shadow:0 0 8px #39ff14,0 0 20px #39ff14;}
-          50%{text-shadow:0 0 20px #39ff14,0 0 40px #39ff14;}
-        }
+        @keyframes pulse-glow{0%,100%{text-shadow:0 0 8px #39ff14,0 0 20px #39ff14;}50%{text-shadow:0 0 20px #39ff14,0 0 40px #39ff14;}}
         .loading-text{animation:pulse-glow 1.2s ease-in-out infinite;}
         @keyframes fadeOut{0%{opacity:1}100%{opacity:0}}
         .splash-fade{animation:fadeOut 1.1s ease-in-out forwards;}
         @keyframes slideIn{0%{transform:translateX(-100%)}100%{transform:translateX(0)}}
         .menu-panel{animation:slideIn 0.25s ease forwards;}
+        @keyframes expandNotes{0%{opacity:0;transform:scale(0.97)}100%{opacity:1;transform:scale(1)}}
+        .notes-full{animation:expandNotes 0.2s ease forwards;}
         *{box-sizing:border-box;}
         body{background:#000;margin:0;}
-        .chrome-input{
-          background:#050a05;border:1px solid rgba(57,255,20,0.2);
-          color:#ccc;border-radius:8px;padding:8px 12px;
-          width:100%;outline:none;font-size:13px;
-        }
+        .chrome-input{background:#050a05;border:1px solid rgba(57,255,20,0.2);color:#ccc;border-radius:8px;padding:8px 12px;width:100%;outline:none;font-size:13px;}
         .chrome-input:focus{border-color:rgba(57,255,20,0.6);box-shadow:0 0 8px rgba(57,255,20,0.2);}
-        .icon-btn{
-          background:none;border:none;cursor:pointer;
-          padding:4px 5px;border-radius:6px;font-size:13px;
-          line-height:1;transition:background 0.15s;
-        }
+        .icon-btn{background:none;border:none;cursor:pointer;padding:4px 5px;border-radius:6px;font-size:13px;line-height:1;transition:background 0.15s;}
         .icon-btn:hover{background:rgba(255,255,255,0.08);}
-        .table-wrap{
-          overflow-x:auto;border-radius:16px;
-          border:1px solid rgba(57,255,20,0.25);
-          margin-bottom:16px;
-          -webkit-overflow-scrolling:touch;
-        }
+        .table-wrap{overflow-x:auto;border-radius:16px;margin-bottom:16px;-webkit-overflow-scrolling:touch;}
         .section-table{width:max-content;min-width:100%;border-collapse:collapse;}
-        .sticky-col{
-          position:sticky;left:0;z-index:2;
-          background:#080d08;min-width:120px;max-width:120px;
-        }
-        .sticky-col-head{
-          position:sticky;left:0;z-index:3;
-          background:#111811;min-width:120px;
-        }
+        .sticky-col{position:sticky;left:0;z-index:2;background:#080d08;min-width:120px;max-width:120px;}
+        .sticky-col-head{position:sticky;left:0;z-index:3;background:#111811;min-width:120px;}
         .chrome-row{transition:background 0.15s;}
         .chrome-row:hover{background:rgba(255,255,255,0.02)!important;}
         .tab-scroll{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;}
         .tab-scroll::-webkit-scrollbar{display:none;}
       `}</style>
 
+      {/* FULLSCREEN NOTES */}
+      {notesOpen && song && (
+        <div className="notes-full" style={{
+          position:"fixed",inset:0,zIndex:7000,
+          background:"#000",display:"flex",flexDirection:"column",
+        }}>
+          <div style={{
+            display:"flex",alignItems:"center",gap:10,
+            padding:"14px 16px",
+            borderBottom:`1px solid ${song.color.hex}44`,
+            background:"#0a0f0a",
+          }}>
+            <div style={{width:8,height:8,borderRadius:"50%",background:song.color.hex,boxShadow:`0 0 6px ${song.color.hex}`}}/>
+            <span style={{color:song.color.hex,fontWeight:700,fontSize:14,flex:1}}>{song.name} — NOTES</span>
+            <button onClick={()=>setNotesOpen(false)} style={{
+              background:`${song.color.hex}22`,border:`1px solid ${song.color.hex}66`,
+              color:song.color.hex,borderRadius:8,padding:"6px 14px",
+              cursor:"pointer",fontSize:12,fontWeight:700,
+            }}>↙ COLLAPSE</button>
+          </div>
+          <textarea
+            className="chrome-input"
+            style={{
+              flex:1,resize:"none",fontFamily:"monospace",fontSize:14,
+              border:"none",borderRadius:0,padding:"20px",
+              lineHeight:1.7,
+            }}
+            placeholder="Session notes..."
+            value={song.notes}
+            onChange={e=>updateSong(song.id,()=>({notes:e.target.value}))}
+            autoFocus
+          />
+        </div>
+      )}
+
       {/* MENU */}
       {menuOpen && (
         <div style={{position:"fixed",inset:0,zIndex:8000}} onClick={()=>setMenuOpen(false)}>
-          <div className="menu-panel" onClick={(e)=>e.stopPropagation()} style={{
+          <div className="menu-panel" onClick={e=>e.stopPropagation()} style={{
             position:"absolute",top:0,left:0,bottom:0,width:"82%",maxWidth:320,
             background:"#080d08",borderRight:`1px solid ${projectColor}44`,
             display:"flex",flexDirection:"column",overflow:"hidden",
           }}>
             <div style={{padding:"20px 16px 12px",borderBottom:`1px solid ${projectColor}33`,background:"#0a0f0a"}}>
-              <img src={LOGO_TEXT} alt="Dog Bones" style={{
-                width:"100%",maxWidth:200,height:40,
-                objectFit:"cover",objectPosition:"center",
-                mixBlendMode:"screen",display:"block",marginBottom:4,
-              }}/>
+              <img src={LOGO_TEXT} alt="Dog Bones" style={{width:"100%",maxWidth:200,height:40,objectFit:"cover",objectPosition:"center",mixBlendMode:"screen",display:"block",marginBottom:4}}/>
               <p style={{color:`${projectColor}88`,fontSize:9,letterSpacing:"0.3em"}}>PROJECTS</p>
             </div>
 
             <div style={{flex:1,overflowY:"auto",padding:"12px 0"}}>
-              {projects.map((p)=>(
+              {projects.map(p=>(
                 <div key={p.id} style={{
-                  display:"flex",alignItems:"center",gap:8,
-                  padding:"12px 16px",cursor:"pointer",
+                  display:"flex",alignItems:"center",gap:8,padding:"12px 16px",cursor:"pointer",
                   background:p.id===activeProject?`${p.color}11`:"transparent",
                   borderLeft:p.id===activeProject?`3px solid ${p.color}`:"3px solid transparent",
                 }} onClick={()=>switchProject(p.id)}>
                   <div style={{width:10,height:10,borderRadius:"50%",background:p.color,flexShrink:0,boxShadow:`0 0 6px ${p.color}`}}/>
                   <span style={{flex:1,fontSize:13,fontWeight:600,color:p.id===activeProject?p.color:"#aaa"}}>{p.name}</span>
                   {projects.length>1&&(
-                    <button className="icon-btn" onClick={(e)=>{e.stopPropagation();deleteProject(p.id);}} style={{color:"#ff4444"}}>🗑️</button>
+                    <button className="icon-btn" onClick={e=>{e.stopPropagation();deleteProject(p.id);}} style={{color:"#ff4444"}}>🗑️</button>
                   )}
                 </div>
               ))}
@@ -347,8 +326,8 @@ export default function App() {
               <p style={{color:"#666",fontSize:10,letterSpacing:"0.2em",marginBottom:8}}>NEW PROJECT</p>
               <div style={{display:"flex",gap:8}}>
                 <input className="chrome-input" placeholder="Project / Song name..."
-                  value={newProjectName} onChange={(e)=>setNewProjectName(e.target.value)}
-                  onKeyDown={(e)=>e.key==="Enter"&&addProject()} style={{fontSize:12}}/>
+                  value={newProjectName} onChange={e=>setNewProjectName(e.target.value)}
+                  onKeyDown={e=>e.key==="Enter"&&addProject()} style={{fontSize:12}}/>
                 <button onClick={addProject} style={{
                   background:`${projectColor}22`,border:`1px solid ${projectColor}66`,
                   color:projectColor,borderRadius:8,padding:"6px 12px",
@@ -382,17 +361,10 @@ export default function App() {
         <div style={{maxWidth:1200,margin:"0 auto",padding:"12px"}}>
 
           {/* Top Bar */}
-          <div style={{
-            display:"flex",alignItems:"center",gap:10,marginBottom:12,
-            padding:"10px 14px",borderRadius:14,
-            background:"linear-gradient(145deg,#0a0f0a,#111811)",
-            border:`1px solid ${projectColor}44`,
-          }}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,padding:"10px 14px",borderRadius:14,background:"linear-gradient(145deg,#0a0f0a,#111811)",border:`1px solid ${projectColor}44`}}>
             <button onClick={()=>setMenuOpen(true)} style={{background:"none",border:"none",cursor:"pointer",padding:"4px 6px",borderRadius:8,flexShrink:0}}>
               <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                {[0,1,2].map((i)=>(
-                  <div key={i} style={{width:20,height:2,borderRadius:1,background:projectColor,boxShadow:`0 0 4px ${projectColor}`}}/>
-                ))}
+                {[0,1,2].map(i=><div key={i} style={{width:20,height:2,borderRadius:1,background:projectColor,boxShadow:`0 0 4px ${projectColor}`}}/>)}
               </div>
             </button>
 
@@ -402,8 +374,8 @@ export default function App() {
               {editingProjectName?(
                 <div style={{display:"flex",gap:4}}>
                   <input className="chrome-input" style={{padding:"4px 8px",fontSize:12,borderColor:`${projectColor}66`}}
-                    value={projectNameValue} onChange={(e)=>setProjectNameValue(e.target.value)}
-                    onKeyDown={(e)=>e.key==="Enter"&&saveProjectName()} autoFocus/>
+                    value={projectNameValue} onChange={e=>setProjectNameValue(e.target.value)}
+                    onKeyDown={e=>e.key==="Enter"&&saveProjectName()} autoFocus/>
                   <button className="icon-btn" onClick={saveProjectName} style={{color:projectColor}}>✓</button>
                   <button className="icon-btn" onClick={()=>setEditingProjectName(false)} style={{color:"#666"}}>✕</button>
                 </div>
@@ -417,34 +389,18 @@ export default function App() {
             </div>
 
             <div style={{position:"relative",flexShrink:0}}>
-              <button onClick={()=>setColorPickerOpen(!colorPickerOpen)} style={{
-                width:24,height:24,borderRadius:"50%",
-                background:projectColor,border:"none",cursor:"pointer",
-                boxShadow:`0 0 8px ${projectColor}`,
-              }}/>
+              <button onClick={()=>setColorPickerOpen(!colorPickerOpen)} style={{width:24,height:24,borderRadius:"50%",background:projectColor,border:"none",cursor:"pointer",boxShadow:`0 0 8px ${projectColor}`}}/>
               {colorPickerOpen&&(
-                <div style={{
-                  position:"absolute",top:30,right:0,zIndex:100,
-                  background:"#111",borderRadius:12,padding:10,
-                  border:"1px solid rgba(255,255,255,0.1)",
-                  display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,
-                }}>
-                  {PROJECT_COLORS.map((c)=>(
-                    <button key={c} onClick={()=>{updateProject(project.id,()=>({color:c}));setColorPickerOpen(false);}} style={{
-                      width:24,height:24,borderRadius:"50%",background:c,
-                      border:c===projectColor?"2px solid #fff":"none",
-                      cursor:"pointer",boxShadow:`0 0 6px ${c}`,
-                    }}/>
+                <div style={{position:"absolute",top:30,right:0,zIndex:100,background:"#111",borderRadius:12,padding:10,border:"1px solid rgba(255,255,255,0.1)",display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>
+                  {PROJECT_COLORS.map(c=>(
+                    <button key={c} onClick={()=>{updateProject(project.id,()=>({color:c}));setColorPickerOpen(false);}} style={{width:24,height:24,borderRadius:"50%",background:c,border:c===projectColor?"2px solid #fff":"none",cursor:"pointer",boxShadow:`0 0 6px ${c}`}}/>
                   ))}
                 </div>
               )}
             </div>
 
             <div style={{width:40,height:40,borderRadius:8,overflow:"hidden",border:`1px solid ${projectColor}44`,flexShrink:0}}>
-              <img src="/launchericon-192x192.png" alt="Logo" style={{
-                width:40,height:40,objectFit:"cover",mixBlendMode:"screen",
-                filter:"sepia(1) saturate(3) hue-rotate(70deg) brightness(0.9)",
-              }}/>
+              <img src="/launchericon-192x192.png" alt="Logo" style={{width:40,height:40,objectFit:"cover",mixBlendMode:"screen",filter:"sepia(1) saturate(3) hue-rotate(70deg) brightness(0.9)"}}/>
             </div>
           </div>
 
@@ -455,12 +411,8 @@ export default function App() {
                 <h2 style={{color:projectColor,fontSize:16,fontWeight:700,letterSpacing:"0.1em",marginBottom:4}}>📋 SETLIST BUILDER</h2>
                 <p style={{color:"#666",fontSize:11,letterSpacing:"0.15em",marginBottom:16}}>DRAG TO REORDER — {project?.name?.toUpperCase()}</p>
                 <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:16}}>
-                  {project.songs.map((s)=>(
-                    <button key={s.id} onClick={()=>addToSetlist(s.name)} style={{
-                      background:`${s.color.hex}22`,border:`1px solid ${s.color.hex}66`,
-                      color:s.color.hex,borderRadius:8,padding:"6px 12px",
-                      cursor:"pointer",fontSize:12,fontWeight:700,
-                    }}>+ {s.name}</button>
+                  {project.songs.map(s=>(
+                    <button key={s.id} onClick={()=>addToSetlist(s.name)} style={{background:`${s.color.hex}22`,border:`1px solid ${s.color.hex}66`,color:s.color.hex,borderRadius:8,padding:"6px 12px",cursor:"pointer",fontSize:12,fontWeight:700}}>+ {s.name}</button>
                   ))}
                 </div>
                 {(project.setlist||[]).length===0?(
@@ -468,16 +420,8 @@ export default function App() {
                 ):(
                   <div style={{display:"flex",flexDirection:"column",gap:8}}>
                     {(project.setlist||[]).map((item,index)=>(
-                      <div key={item.id} draggable
-                        onDragStart={()=>handleSetlistDragStart(index)}
-                        onDragOver={(e)=>e.preventDefault()}
-                        onDrop={()=>handleSetlistDrop(index)}
-                        style={{
-                          display:"flex",alignItems:"center",gap:10,
-                          padding:"12px 14px",borderRadius:10,
-                          background:"#0a0f0a",border:`1px solid ${projectColor}33`,
-                          cursor:"grab",opacity:draggedSetlist===index?0.4:1,
-                        }}>
+                      <div key={item.id} draggable onDragStart={()=>handleSetlistDragStart(index)} onDragOver={e=>e.preventDefault()} onDrop={()=>handleSetlistDrop(index)}
+                        style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",borderRadius:10,background:"#0a0f0a",border:`1px solid ${projectColor}33`,cursor:"grab",opacity:draggedSetlist===index?0.4:1}}>
                         <span style={{color:`${projectColor}66`,fontSize:16}}>☰</span>
                         <span style={{color:projectColor,fontWeight:700,fontSize:14,width:28}}>{index+1}.</span>
                         <span style={{flex:1,color:"#ccc",fontSize:13}}>{item.name}</span>
@@ -513,14 +457,14 @@ export default function App() {
                 }}>⚡ MERGE</button>
               </div>
 
-              {/* MERGE VIEW */}
+              {/* MERGE */}
               {isMerge?(
                 <div>
                   <div style={{padding:"14px 16px",borderRadius:14,marginBottom:12,background:"linear-gradient(145deg,#0a0f0a,#111811)",border:"1px solid rgba(255,255,255,0.1)"}}>
                     <h2 style={{color:"#fff",fontSize:16,fontWeight:700,marginBottom:4}}>⚡ MERGE VIEW</h2>
                     <p style={{color:"#555",fontSize:10,letterSpacing:"0.15em",marginBottom:10}}>COLOR = WHICH SONG CLAIMED THIS PART</p>
                     <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-                      {project.songs.map((s)=>(
+                      {project.songs.map(s=>(
                         <div key={s.id} style={{display:"flex",alignItems:"center",gap:5}}>
                           <div style={{width:10,height:10,borderRadius:3,background:s.color.hex}}/>
                           <span style={{color:s.color.hex,fontSize:11,fontWeight:700}}>{s.name}</span>
@@ -528,30 +472,30 @@ export default function App() {
                       ))}
                     </div>
                   </div>
-                  <div className="table-wrap">
+                  <div className="table-wrap" style={{border:"1px solid rgba(255,255,255,0.1)"}}>
                     <table className="section-table">
                       <thead>
                         <tr style={{background:"#111811"}}>
                           <th className="sticky-col-head" style={{padding:"10px 12px",borderBottom:"1px solid rgba(255,255,255,0.1)",textAlign:"left",fontSize:10,color:"#aaa",letterSpacing:"0.1em"}}>SECTION</th>
-                          {DEFAULT_INSTRUMENTS.map((inst)=>(
+                          {DEFAULT_INSTRUMENTS.map(inst=>(
                             <th key={inst} style={{padding:"10px 8px",borderBottom:"1px solid rgba(255,255,255,0.1)",textAlign:"center",fontSize:9,color:"#aaa",letterSpacing:"0.08em",minWidth:72,whiteSpace:"nowrap"}}>{inst.toUpperCase()}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
-                        {allSections.map((section)=>(
+                        {allSections.map(section=>(
                           <tr key={section} style={{borderBottom:"1px solid rgba(255,255,255,0.04)"}}>
                             <td className="sticky-col" style={{padding:"9px 12px",fontSize:11,color:"#aaa",fontWeight:600}}>{section}</td>
-                            {DEFAULT_INSTRUMENTS.map((_,colIndex)=>{
-                              const colors=getChecksForCell(section,colIndex);
+                            {DEFAULT_INSTRUMENTS.map((_,ci)=>{
+                              const colors=getColors(section,ci);
                               return(
-                                <td key={colIndex} style={{padding:"8px",textAlign:"center"}}>
+                                <td key={ci} style={{padding:"8px",textAlign:"center"}}>
                                   {colors.length===0?(
                                     <div style={{width:18,height:18,margin:"0 auto",border:"2px solid rgba(255,255,255,0.08)",borderRadius:4,background:"#000"}}/>
                                   ):(
                                     <div style={{display:"flex",gap:2,justifyContent:"center",flexWrap:"wrap"}}>
-                                      {colors.map((c,ci)=>(
-                                        <div key={ci} style={{width:14,height:14,borderRadius:3,background:c.hex,boxShadow:`0 0 5px ${c.hex}88`}}/>
+                                      {colors.map((c,i)=>(
+                                        <div key={i} style={{width:14,height:14,borderRadius:3,background:c.hex,boxShadow:`0 0 5px ${c.hex}88`}}/>
                                       ))}
                                     </div>
                                   )}
@@ -572,9 +516,7 @@ export default function App() {
                     <div style={{width:8,height:8,borderRadius:"50%",background:song.color.hex,flexShrink:0,boxShadow:`0 0 6px ${song.color.hex}`}}/>
                     {editingSongName?(
                       <>
-                        <input className="chrome-input" style={{borderColor:`${song.color.hex}66`,fontSize:13}}
-                          value={songNameValue} onChange={(e)=>setSongNameValue(e.target.value)}
-                          onKeyDown={(e)=>e.key==="Enter"&&saveSongName()} autoFocus/>
+                        <input className="chrome-input" style={{borderColor:`${song.color.hex}66`,fontSize:13}} value={songNameValue} onChange={e=>setSongNameValue(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveSongName()} autoFocus/>
                         <button className="icon-btn" onClick={saveSongName} style={{color:song.color.hex}}>✓</button>
                         <button className="icon-btn" onClick={()=>setEditingSongName(false)} style={{color:"#666"}}>✕</button>
                       </>
@@ -588,21 +530,14 @@ export default function App() {
 
                   {/* Add Section */}
                   <div style={{display:"flex",gap:8,marginBottom:10,padding:"10px 14px",borderRadius:12,background:"linear-gradient(145deg,#0a0f0a,#111811)",border:`1px solid ${song.color.hex}33`}}>
-                    <input className="chrome-input" placeholder="New section name..."
-                      value={newSection} onChange={(e)=>setNewSection(e.target.value)}
-                      onKeyDown={(e)=>e.key==="Enter"&&addSection()}
-                      style={{borderColor:`${song.color.hex}33`,fontSize:12}}/>
-                    <button onClick={addSection} style={{
-                      background:`${song.color.hex}22`,border:`1px solid ${song.color.hex}66`,
-                      color:song.color.hex,borderRadius:8,padding:"6px 12px",
-                      cursor:"pointer",fontSize:12,fontWeight:700,whiteSpace:"nowrap",
-                    }}>+ ADD</button>
+                    <input className="chrome-input" placeholder="New section name..." value={newSection} onChange={e=>setNewSection(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addSection()} style={{borderColor:`${song.color.hex}33`,fontSize:12}}/>
+                    <button onClick={addSection} style={{background:`${song.color.hex}22`,border:`1px solid ${song.color.hex}66`,color:song.color.hex,borderRadius:8,padding:"6px 12px",cursor:"pointer",fontSize:12,fontWeight:700,whiteSpace:"nowrap"}}>+ ADD</button>
                   </div>
 
                   {/* Legend */}
                   <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:10,padding:"8px 14px",borderRadius:10,background:"#0a0f0a",border:"1px solid rgba(255,255,255,0.06)"}}>
                     <span style={{color:"#555",fontSize:10,letterSpacing:"0.1em"}}>CLAIMED BY:</span>
-                    {project.songs.map((s)=>(
+                    {project.songs.map(s=>(
                       <div key={s.id} style={{display:"flex",alignItems:"center",gap:4}}>
                         <div style={{width:10,height:10,borderRadius:2,background:s.color.hex,boxShadow:`0 0 4px ${s.color.hex}`}}/>
                         <span style={{color:s.color.hex,fontSize:10,fontWeight:700}}>{s.name}</span>
@@ -616,39 +551,28 @@ export default function App() {
                       <thead>
                         <tr style={{background:"#111811"}}>
                           <th className="sticky-col-head" style={{padding:"10px 12px",borderBottom:`1px solid ${song.color.hex}44`,textAlign:"left",fontSize:10,color:song.color.hex,letterSpacing:"0.12em"}}>SECTION</th>
-                          {DEFAULT_INSTRUMENTS.map((inst)=>(
+                          {DEFAULT_INSTRUMENTS.map(inst=>(
                             <th key={inst} style={{padding:"10px 8px",borderBottom:`1px solid ${song.color.hex}44`,textAlign:"center",fontSize:9,color:song.color.hex,minWidth:72,whiteSpace:"nowrap",letterSpacing:"0.08em"}}>{inst.toUpperCase()}</th>
                           ))}
                           <th style={{padding:"10px 8px",borderBottom:`1px solid ${song.color.hex}44`,textAlign:"center",fontSize:9,color:song.color.hex,minWidth:110,whiteSpace:"nowrap"}}>STATUS / ACTIONS</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {song.sections.map((section,rowIndex)=>{
-                          const isLocked=!!song.locked?.[rowIndex];
-                          const isStarred=!!song.starred?.[rowIndex];
-                          const status=song.status?.[rowIndex]||"Draft";
+                        {song.sections.map((section,ri)=>{
+                          const isLocked =!!song.locked?.[ri];
+                          const isStarred=!!song.starred?.[ri];
+                          const status   =song.status?.[ri]||"Draft";
                           return(
-                            <tr key={section+rowIndex} draggable={!isLocked}
-                              onDragStart={()=>!isLocked&&handleDragStart(rowIndex)}
-                              onDragOver={(e)=>e.preventDefault()}
-                              onDrop={()=>handleDrop(rowIndex)}
+                            <tr key={section+ri} draggable={!isLocked}
+                              onDragStart={()=>!isLocked&&handleDragStart(ri)}
+                              onDragOver={e=>e.preventDefault()}
+                              onDrop={()=>handleDrop(ri)}
                               className="chrome-row"
-                              style={{
-                                borderBottom:`1px solid ${song.color.hex}18`,
-                                opacity:draggedIndex===rowIndex?0.4:1,
-                                cursor:isLocked?"default":"grab",
-                                background:isStarred?`${song.color.hex}08`:"transparent",
-                              }}>
-                              <td className="sticky-col" style={{
-                                padding:"8px 12px",fontSize:11,
-                                color:isLocked?"#555":"#bbb",fontWeight:600,
-                                background:isStarred?`${song.color.hex}10`:"#080d08",
-                              }}>
-                                {editingIndex===rowIndex?(
+                              style={{borderBottom:`1px solid ${song.color.hex}18`,opacity:draggedIndex===ri?0.4:1,cursor:isLocked?"default":"grab",background:isStarred?`${song.color.hex}08`:"transparent"}}>
+                              <td className="sticky-col" style={{padding:"8px 12px",fontSize:11,color:isLocked?"#555":"#bbb",fontWeight:600,background:isStarred?`${song.color.hex}10`:"#080d08"}}>
+                                {editingIndex===ri?(
                                   <div style={{display:"flex",gap:4}}>
-                                    <input className="chrome-input" style={{padding:"3px 6px",fontSize:11}}
-                                      value={editingValue} onChange={(e)=>setEditingValue(e.target.value)}
-                                      onKeyDown={(e)=>e.key==="Enter"&&saveEdit()} autoFocus/>
+                                    <input className="chrome-input" style={{padding:"3px 6px",fontSize:11}} value={editingValue} onChange={e=>setEditingValue(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveEdit()} autoFocus/>
                                     <button className="icon-btn" onClick={saveEdit} style={{color:song.color.hex,fontSize:12}}>✓</button>
                                     <button className="icon-btn" onClick={()=>setEditingIndex(null)} style={{color:"#666",fontSize:12}}>✕</button>
                                   </div>
@@ -661,12 +585,13 @@ export default function App() {
                                   </div>
                                 )}
                               </td>
-                              {DEFAULT_INSTRUMENTS.map((_,colIndex)=>{
-                                const colors=getChecksForCell(section,colIndex);
-                                const myCheck=isCellCheckedBySong(section,colIndex,song.id);
+                              {DEFAULT_INSTRUMENTS.map((_,ci)=>{
+                                const colors  = getColors(section,ci);
+                                const myCheck = isMine(section,ci,song.id);
+                                const others  = colors.filter(c=>c.hex!==song.color.hex);
                                 return(
-                                  <td key={colIndex} style={{padding:"6px 8px",textAlign:"center"}}>
-                                    <div onClick={()=>toggleChecked(section,colIndex,song.id)}
+                                  <td key={ci} style={{padding:"6px 8px",textAlign:"center"}}>
+                                    <div onClick={()=>!isLocked&&toggleChecked(section,ci,song.id)}
                                       style={{
                                         width:22,height:22,margin:"0 auto",
                                         border:`2px solid ${myCheck?song.color.hex:song.color.hex+"33"}`,
@@ -675,54 +600,30 @@ export default function App() {
                                         position:"relative",
                                         boxShadow:myCheck?`0 0 6px ${song.color.hex}88`:"none",
                                         transition:"all 0.15s",
-                                        opacity:isLocked?0.5:1,
                                       }}>
-                                      {/* Show dots for OTHER songs that checked this */}
-                                      {colors.length>0&&(
-                                        <div style={{
-                                          position:"absolute",
-                                          top:-6,right:-6,
-                                          display:"flex",gap:1,flexWrap:"wrap",
-                                          maxWidth:20,
-                                        }}>
-                                          {colors.filter((c)=>c.hex!==song.color.hex).map((c,ci)=>(
-                                            <div key={ci} style={{
-                                              width:6,height:6,borderRadius:"50%",
-                                              background:c.hex,
-                                              boxShadow:`0 0 3px ${c.hex}`,
-                                            }}/>
+                                      {/* Other song dots */}
+                                      {others.length>0&&(
+                                        <div style={{position:"absolute",top:-5,right:-5,display:"flex",gap:1}}>
+                                          {others.slice(0,3).map((c,i)=>(
+                                            <div key={i} style={{width:6,height:6,borderRadius:"50%",background:c.hex,boxShadow:`0 0 3px ${c.hex}`}}/>
                                           ))}
                                         </div>
                                       )}
                                       {/* My checkmark */}
                                       {myCheck&&(
-                                        <div style={{
-                                          position:"absolute",left:4,top:1,
-                                          width:8,height:12,
-                                          border:`2px solid ${song.color.hex}`,
-                                          borderTop:"none",borderLeft:"none",
-                                          transform:"rotate(45deg)",
-                                        }}/>
+                                        <div style={{position:"absolute",left:4,top:1,width:8,height:12,border:`2px solid ${song.color.hex}`,borderTop:"none",borderLeft:"none",transform:"rotate(45deg)"}}/>
                                       )}
                                     </div>
                                   </td>
                                 );
                               })}
                               <td style={{padding:"6px 8px",textAlign:"center",whiteSpace:"nowrap"}}>
-                                <button onClick={()=>cycleStatus(rowIndex)} style={{
-                                  background:`${STATUS_COLORS[status]}22`,
-                                  border:`1px solid ${STATUS_COLORS[status]}66`,
-                                  color:STATUS_COLORS[status],
-                                  borderRadius:6,padding:"2px 6px",
-                                  fontSize:9,fontWeight:700,cursor:"pointer",
-                                  letterSpacing:"0.05em",marginBottom:4,
-                                  display:"block",width:"100%",
-                                }}>{status.toUpperCase()}</button>
+                                <button onClick={()=>cycleStatus(ri)} style={{background:`${STATUS_COLORS[status]}22`,border:`1px solid ${STATUS_COLORS[status]}66`,color:STATUS_COLORS[status],borderRadius:6,padding:"2px 6px",fontSize:9,fontWeight:700,cursor:"pointer",letterSpacing:"0.05em",marginBottom:4,display:"block",width:"100%"}}>{status.toUpperCase()}</button>
                                 <div style={{display:"flex",justifyContent:"center",gap:2}}>
-                                  <button className="icon-btn" onClick={()=>toggleStarred(rowIndex)} style={{fontSize:12,color:isStarred?"#ffee00":"#444"}}>⭐</button>
-                                  <button className="icon-btn" onClick={()=>toggleLocked(rowIndex)} style={{fontSize:12,color:isLocked?"#ff9500":"#444"}}>🔒</button>
-                                  {!isLocked&&<button className="icon-btn" onClick={()=>startEdit(rowIndex)} style={{fontSize:12,color:`${song.color.hex}88`}}>✏️</button>}
-                                  {!isLocked&&<button className="icon-btn" onClick={()=>removeSection(rowIndex)} style={{fontSize:12,color:"#ff444488"}}>🗑️</button>}
+                                  <button className="icon-btn" onClick={()=>toggleStarred(ri)} style={{fontSize:12,color:isStarred?"#ffee00":"#444"}}>⭐</button>
+                                  <button className="icon-btn" onClick={()=>toggleLocked(ri)} style={{fontSize:12,color:isLocked?"#ff9500":"#444"}}>🔒</button>
+                                  {!isLocked&&<button className="icon-btn" onClick={()=>startEdit(ri)} style={{fontSize:12,color:`${song.color.hex}88`}}>✏️</button>}
+                                  {!isLocked&&<button className="icon-btn" onClick={()=>removeSection(ri)} style={{fontSize:12,color:"#ff444488"}}>🗑️</button>}
                                 </div>
                               </td>
                             </tr>
@@ -732,30 +633,42 @@ export default function App() {
                     </table>
                   </div>
 
-                  {/* Notes / BPM / Key */}
+                  {/* Bottom Cards */}
                   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:10,marginTop:12}}>
-                    <div style={{borderRadius:14,padding:14,background:"linear-gradient(145deg,#0a0f0a,#111811)",border:`1px solid ${song.color.hex}33`}}>
+
+                    {/* NOTES — expandable */}
+                    <div style={{borderRadius:14,padding:14,background:"linear-gradient(145deg,#0a0f0a,#111811)",border:`1px solid ${song.color.hex}33`,position:"relative"}}>
                       <h2 style={{color:song.color.hex,fontSize:12,fontWeight:700,marginBottom:8,letterSpacing:"0.1em"}}>NOTES</h2>
-                      <textarea className="chrome-input" style={{height:90,resize:"none",fontFamily:"monospace",borderColor:`${song.color.hex}33`}}
-                        placeholder="Session notes..." value={song.notes}
-                        onChange={(e)=>updateSong(song.id,()=>({notes:e.target.value}))}/>
+                      <textarea className="chrome-input"
+                        style={{height:72,resize:"none",fontFamily:"monospace",borderColor:`${song.color.hex}33`,paddingBottom:24}}
+                        placeholder="Session notes..."
+                        value={song.notes}
+                        onChange={e=>updateSong(song.id,()=>({notes:e.target.value}))}
+                      />
+                      {/* Expand tab */}
+                      <button onClick={()=>setNotesOpen(true)} style={{
+                        position:"absolute",bottom:18,right:18,
+                        background:`${song.color.hex}22`,
+                        border:`1px solid ${song.color.hex}66`,
+                        color:song.color.hex,borderRadius:6,
+                        padding:"2px 8px",cursor:"pointer",
+                        fontSize:11,fontWeight:700,lineHeight:1.6,
+                      }}>↗ EXPAND</button>
                     </div>
+
                     <div style={{borderRadius:14,padding:14,background:"linear-gradient(145deg,#0a0f0a,#111811)",border:`1px solid ${song.color.hex}33`}}>
                       <h2 style={{color:song.color.hex,fontSize:12,fontWeight:700,marginBottom:8,letterSpacing:"0.1em"}}>TEMPO & KEY</h2>
-                      <input className="chrome-input" style={{marginBottom:8,borderColor:`${song.color.hex}33`}}
-                        placeholder="BPM" value={song.bpm}
-                        onChange={(e)=>updateSong(song.id,()=>({bpm:e.target.value}))}/>
-                      <input className="chrome-input" style={{borderColor:`${song.color.hex}33`}}
-                        placeholder="Key (e.g. A minor)" value={song.key}
-                        onChange={(e)=>updateSong(song.id,()=>({key:e.target.value}))}/>
+                      <input className="chrome-input" style={{marginBottom:8,borderColor:`${song.color.hex}33`}} placeholder="BPM" value={song.bpm} onChange={e=>updateSong(song.id,()=>({bpm:e.target.value}))}/>
+                      <input className="chrome-input" style={{borderColor:`${song.color.hex}33`}} placeholder="Key (e.g. A minor)" value={song.key} onChange={e=>updateSong(song.id,()=>({key:e.target.value}))}/>
                     </div>
+
                     <div style={{borderRadius:14,padding:14,background:"linear-gradient(145deg,#0a0f0a,#111811)",border:`1px solid ${song.color.hex}33`}}>
                       <h2 style={{color:song.color.hex,fontSize:12,fontWeight:700,marginBottom:8,letterSpacing:"0.1em"}}>TIPS</h2>
                       <ul style={{fontSize:11,color:"#777",lineHeight:2,listStyle:"none",padding:0}}>
                         <li><span style={{color:song.color.hex}}>▸</span> Check a box to claim that part</li>
-                        <li><span style={{color:song.color.hex}}>▸</span> Dots show other songs claimed it too</li>
+                        <li><span style={{color:song.color.hex}}>▸</span> Dots = other songs claimed it</li>
                         <li><span style={{color:song.color.hex}}>▸</span> MERGE to see full picture</li>
-                        <li><span style={{color:song.color.hex}}>▸</span> ⭐ star · 🔒 lock · cycle status</li>
+                        <li><span style={{color:song.color.hex}}>▸</span> ↗ expand notes full screen</li>
                       </ul>
                     </div>
                   </div>
@@ -768,10 +681,7 @@ export default function App() {
 
       {/* SPLASH */}
       {(phase==="loading"||phase==="fading")&&(
-        <div className={phase==="fading"?"splash-fade":""} style={{
-          position:"fixed",inset:0,zIndex:9999,background:"#000",overflow:"hidden",
-          display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",
-        }}>
+        <div className={phase==="fading"?"splash-fade":""} style={{position:"fixed",inset:0,zIndex:9999,background:"#000",overflow:"hidden",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end"}}>
           <img src={SPLASH_IMG} alt="Dog Bones" style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",objectPosition:"center"}}/>
           <div style={{position:"absolute",inset:0,background:"linear-gradient(to top,rgba(0,0,0,0.85) 0%,transparent 50%)"}}/>
           {phase==="loading"&&(
@@ -786,4 +696,4 @@ export default function App() {
       )}
     </>
   );
-      }
+    }
