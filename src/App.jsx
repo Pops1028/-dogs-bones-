@@ -82,6 +82,7 @@ export default function App() {
   const [newInstrument,     setNewInstrument]     = useState("");
   const [colorPickerOpen,   setColorPickerOpen]   = useState(false);
   const [instrPanelOpen,    setInstrPanelOpen]    = useState(false);
+  const [shareCopied,       setShareCopied]       = useState(false);
 
   useEffect(() => { save(STORAGE_KEY, projects);      }, [projects]);
   useEffect(() => { save(STORAGE_AP,  activeProject); }, [activeProject]);
@@ -200,6 +201,19 @@ export default function App() {
   const saveProjectSongName = () => { if(!projectSongValue.trim())return; updateProject(project.id,()=>({songName:projectSongValue.trim()})); setEditingProjectSong(false); };
   const saveSongName = () => { if(!songNameValue.trim())return; updateSong(song.id,()=>({name:songNameValue.trim()})); setEditingSongName(false); };
 
+  const shareApp = () => {
+    const url = window.location.origin;
+    const text = "🎸 Dog Bones — Song Section Organizer. Tap the link, open in Chrome, then Add to Home Screen!";
+    if (navigator.share) {
+      navigator.share({ title:"Dog Bones", text, url });
+    } else {
+      navigator.clipboard.writeText(`${text}\n${url}`).then(()=>{
+        setShareCopied(true);
+        setTimeout(()=>setShareCopied(false), 2500);
+      });
+    }
+  };
+
   const addToSetlist      = n  => updateProject(project.id, p=>({setlist:[...(p.setlist||[]),{id:Date.now(),name:n}]}));
   const removeFromSetlist = id => updateProject(project.id, p=>({setlist:p.setlist.filter(s=>s.id!==id)}));
   const handleSetlistDragStart = i  => setDraggedSetlist(i);
@@ -260,11 +274,13 @@ export default function App() {
             background:"#080d08",borderRight:`1px solid ${projectColor}44`,
             display:"flex",flexDirection:"column",overflow:"hidden",
           }}>
+            {/* Menu Header */}
             <div style={{padding:"20px 16px 12px",borderBottom:`1px solid ${projectColor}33`,background:"#0a0f0a"}}>
               <img src={LOGO_TEXT} alt="Dog Bones" style={{width:"100%",maxWidth:200,height:40,objectFit:"cover",objectPosition:"center",mixBlendMode:"screen",display:"block",marginBottom:4}}/>
               <p style={{color:`${projectColor}88`,fontSize:9,letterSpacing:"0.3em"}}>PROJECTS</p>
             </div>
 
+            {/* Project List */}
             <div style={{flex:1,overflowY:"auto",padding:"12px 0"}}>
               {projects.map(p=>(
                 <div key={p.id} onClick={()=>switchProject(p.id)} style={{
@@ -284,6 +300,7 @@ export default function App() {
               ))}
             </div>
 
+            {/* New Project */}
             <div style={{padding:"12px 16px",borderTop:`1px solid ${projectColor}22`,background:"#0a0f0a"}}>
               <p style={{color:"#666",fontSize:10,letterSpacing:"0.2em",marginBottom:8}}>NEW PROJECT</p>
               <div style={{display:"flex",gap:8}}>
@@ -293,9 +310,41 @@ export default function App() {
               </div>
             </div>
 
+            {/* Navigation + Share */}
             <div style={{padding:"12px 16px",borderTop:`1px solid ${projectColor}22`,display:"flex",flexDirection:"column",gap:8}}>
-              <button onClick={()=>{setScreen("songs");setMenuOpen(false);}} style={{background:screen==="songs"?`${projectColor}22`:"transparent",border:`1px solid ${screen==="songs"?projectColor+"66":"rgba(255,255,255,0.1)"}`,color:screen==="songs"?projectColor:"#666",borderRadius:8,padding:"8px 12px",cursor:"pointer",fontSize:12,fontWeight:700,letterSpacing:"0.1em",textAlign:"left"}}>🎵 SONG ARRANGER</button>
-              <button onClick={()=>{setScreen("setlist");setMenuOpen(false);}} style={{background:screen==="setlist"?`${projectColor}22`:"transparent",border:`1px solid ${screen==="setlist"?projectColor+"66":"rgba(255,255,255,0.1)"}`,color:screen==="setlist"?projectColor:"#666",borderRadius:8,padding:"8px 12px",cursor:"pointer",fontSize:12,fontWeight:700,letterSpacing:"0.1em",textAlign:"left"}}>📋 SETLIST BUILDER</button>
+              <button onClick={()=>{setScreen("songs");setMenuOpen(false);}} style={{
+                background:screen==="songs"?`${projectColor}22`:"transparent",
+                border:`1px solid ${screen==="songs"?projectColor+"66":"rgba(255,255,255,0.1)"}`,
+                color:screen==="songs"?projectColor:"#666",
+                borderRadius:8,padding:"8px 12px",cursor:"pointer",
+                fontSize:12,fontWeight:700,letterSpacing:"0.1em",textAlign:"left",
+              }}>🎵 SONG ARRANGER</button>
+
+              <button onClick={()=>{setScreen("setlist");setMenuOpen(false);}} style={{
+                background:screen==="setlist"?`${projectColor}22`:"transparent",
+                border:`1px solid ${screen==="setlist"?projectColor+"66":"rgba(255,255,255,0.1)"}`,
+                color:screen==="setlist"?projectColor:"#666",
+                borderRadius:8,padding:"8px 12px",cursor:"pointer",
+                fontSize:12,fontWeight:700,letterSpacing:"0.1em",textAlign:"left",
+              }}>📋 SETLIST BUILDER</button>
+
+              {/* SHARE BUTTON */}
+              <button onClick={shareApp} style={{
+                background:shareCopied?`${projectColor}33`:`${projectColor}11`,
+                border:`1px solid ${projectColor}66`,
+                color:projectColor,
+                borderRadius:8,padding:"8px 12px",cursor:"pointer",
+                fontSize:12,fontWeight:700,letterSpacing:"0.1em",textAlign:"left",
+                boxShadow:`0 0 10px ${projectColor}33`,
+                transition:"all 0.2s",
+              }}>
+                {shareCopied ? "✅ LINK COPIED!" : "📤 SHARE APP WITH BAND"}
+              </button>
+
+              {/* Share instructions */}
+              <p style={{color:"#444",fontSize:10,letterSpacing:"0.05em",lineHeight:1.6,margin:0}}>
+                Bandmates open the link in Chrome → tap menu → Add to Home Screen. No login needed!
+              </p>
             </div>
           </div>
         </div>
@@ -490,7 +539,7 @@ export default function App() {
                     )}
                   </div>
 
-                  {/* Add Section + Instruments Button */}
+                  {/* Add Section + Instruments */}
                   <div style={{display:"flex",gap:8,marginBottom:10}}>
                     <div style={{flex:1,display:"flex",gap:8,padding:"10px 14px",borderRadius:12,background:"linear-gradient(145deg,#0a0f0a,#111811)",border:`1px solid ${song.color.hex}33`}}>
                       <input className="chrome-input" placeholder="New section..." value={newSection}
@@ -499,7 +548,6 @@ export default function App() {
                       <button onClick={addSection} style={{background:`${song.color.hex}22`,border:`1px solid ${song.color.hex}66`,color:song.color.hex,borderRadius:8,padding:"6px 12px",cursor:"pointer",fontSize:12,fontWeight:700,whiteSpace:"nowrap"}}>+ ADD</button>
                     </div>
 
-                    {/* Instruments Button — glowing green chrome logo */}
                     <button onClick={()=>setInstrPanelOpen(!instrPanelOpen)} style={{
                       background:instrPanelOpen?`${song.color.hex}33`:`${song.color.hex}11`,
                       border:`1px solid ${song.color.hex}${instrPanelOpen?"99":"44"}`,
@@ -509,11 +557,7 @@ export default function App() {
                       boxShadow:instrPanelOpen?`0 0 12px ${song.color.hex}66`:`0 0 6px ${song.color.hex}33`,
                       transition:"all 0.2s",
                     }}>
-                      <img src="/launchericon-192x192.png" style={{
-                        width:26,height:26,objectFit:"cover",
-                        mixBlendMode:"screen",
-                        filter:"sepia(1) saturate(3) hue-rotate(70deg) brightness(1.3)",
-                      }}/>
+                      <img src="/launchericon-192x192.png" style={{width:26,height:26,objectFit:"cover",mixBlendMode:"screen",filter:"sepia(1) saturate(3) hue-rotate(70deg) brightness(1.3)"}}/>
                       <span style={{color:song.color.hex,fontSize:8,fontWeight:700,letterSpacing:"0.06em",lineHeight:1.2,textAlign:"center"}}>INSTRUMENTS</span>
                     </button>
                   </div>
@@ -649,7 +693,7 @@ export default function App() {
                         <li><span style={{color:song.color.hex}}>▸</span> Check box to claim a part</li>
                         <li><span style={{color:song.color.hex}}>▸</span> Dots = other songs claimed it</li>
                         <li><span style={{color:song.color.hex}}>▸</span> Logo button = manage instruments</li>
-                        <li><span style={{color:song.color.hex}}>▸</span> ↗ expand notes full screen</li>
+                        <li><span style={{color:song.color.hex}}>▸</span> ☰ menu → 📤 share with band</li>
                       </ul>
                     </div>
                   </div>
@@ -677,4 +721,4 @@ export default function App() {
       )}
     </>
   );
-}
+        }
