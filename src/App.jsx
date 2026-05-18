@@ -49,15 +49,13 @@ function makeDefaultSongs() {
 function makeDefaultTracks() {
   return TRACK_NAMES.map((name,i) => ({
     id:i, name, color:TRACK_COLORS[i],
-    recordings:[], // {id, label, duration, filename}
-    volume:0.8, muted:false, solo:false,
+    recordings:[], volume:0.8, muted:false, solo:false,
   }));
 }
 
 function makeProject(id, name, color) {
   return {
-    id, name, color,
-    songName:"",
+    id, name, color, songName:"",
     instruments:[...DEFAULT_INSTRUMENTS],
     songs:makeDefaultSongs(),
     checks:{}, setlist:[],
@@ -65,10 +63,10 @@ function makeProject(id, name, color) {
   };
 }
 
-const STORAGE_KEY   = "db_v10";
-const STORAGE_AP    = "db_ap_v10";
-const STORAGE_THEME = "db_theme_v10";
-const STORAGE_ACCENT= "db_accent_v10";
+const STORAGE_KEY   = "db_v11";
+const STORAGE_AP    = "db_ap_v11";
+const STORAGE_THEME = "db_theme_v11";
+const STORAGE_ACCENT= "db_accent_v11";
 
 function load(key, fallback) {
   try { const v=localStorage.getItem(key); return v?JSON.parse(v):fallback; }
@@ -125,19 +123,24 @@ export default function App() {
   const [studioAudioURLs,      setStudioAudioURLs]      = useState({});
   const [editingTrackName,     setEditingTrackName]     = useState(null);
   const [trackNameValue,       setTrackNameValue]       = useState("");
+  const [playingTrackId,       setPlayingTrackId]       = useState(null);
+  const [countingIn,           setCountingIn]           = useState(null); // trackId
+  const [countBeat,            setCountBeat]            = useState(0);
 
-  const mediaRecorderRef      = useRef(null);
-  const audioChunksRef        = useRef([]);
-  const recordingTimerRef     = useRef(null);
-  const audioRef              = useRef(null);
-  const fileInputRef          = useRef(null);
-  const studioMediaRef        = useRef(null);
-  const studioChunksRef       = useRef([]);
-  const studioTimerRef        = useRef(null);
-  const studioAudioNodes      = useRef([]);
-  const fileInputSectionRef   = useRef(null);
-  const studioFileInputRef    = useRef(null);
-  const studioFileTrackId     = useRef(null);
+  const mediaRecorderRef    = useRef(null);
+  const audioChunksRef      = useRef([]);
+  const recordingTimerRef   = useRef(null);
+  const audioRef            = useRef(null);
+  const fileInputRef        = useRef(null);
+  const studioMediaRef      = useRef(null);
+  const studioChunksRef     = useRef([]);
+  const studioTimerRef      = useRef(null);
+  const studioAudioNodes    = useRef([]);
+  const studioFileInputRef  = useRef(null);
+  const studioFileTrackId   = useRef(null);
+  const trackAudioRefs      = useRef({});
+  const countIntervalRef    = useRef(null);
+  const audioCtxRef         = useRef(null);
 
   useEffect(()=>{ save(STORAGE_KEY,   projects);      },[projects]);
   useEffect(()=>{ save(STORAGE_AP,    activeProject); },[activeProject]);
@@ -169,6 +172,13 @@ export default function App() {
   const C            = song?.color?.hex||projectColor;
   const tracks       = project?.studio?.tracks||makeDefaultTracks();
   const AC           = accentColor;
+
+  // Get current song BPM from active song
+  const getCurrentBPM = () => {
+    const bpmVal = song?.bpm;
+    const parsed = parseInt(bpmVal);
+    return isNaN(parsed) || parsed <= 0 ? 100 : parsed;
+  };
 
   const getSongColor=(hex)=> hex==="#39ff14" ? AC : hex;
 
@@ -208,7 +218,6 @@ export default function App() {
       }
     }));
 
-  // ── CHECKS ──
   const ckKey=(sn,ci)=>`${sn}--${ci}`;
   const toggleChecked=(sectionName,colIndex,songId)=>{
     const ri=song.sections.indexOf(sectionName);
@@ -229,7 +238,6 @@ export default function App() {
     return Array.isArray(project.checks?.[k])&&project.checks[k].includes(songId);
   };
 
-  // ── INSTRUMENTS ──
   const addInstrument=()=>{
     if (!newInstrument.trim()||instruments.includes(newInstrument.trim())) return;
     updateProject(project.id,p=>({instruments:[...(p.instruments||DEFAULT_INSTRUMENTS),newInstrument.trim()]}));
@@ -238,7 +246,6 @@ export default function App() {
   const removeInstrument=inst=>
     updateProject(project.id,p=>({instruments:(p.instruments||DEFAULT_INSTRUMENTS).filter(i=>i!==inst)}));
 
-  // ── SECTION ──
   const toggleLocked =ri=>updateSong(song.id,s=>({locked:{...s.locked,[ri]:!s.locked?.[ri]}}));
   const toggleStarred=ri=>updateSong(song.id,s=>({starred:{...s.starred,[ri]:!s.starred?.[ri]}}));
   const cycleStatus  =ri=>{
@@ -248,6 +255,7 @@ export default function App() {
       return{status:{...s.status,[ri]:STATUS_OPTIONS[(STATUS_OPTIONS.indexOf(cur)+1)%STATUS_OPTIONS.length]}};
     });
   };
+
   const handleLinesTouchStart=(ri,section)=>{
     setIsDragging(false);
     const timer=setTimeout(()=>{setIsDragging(true);handleDragStart(ri);},400);
@@ -279,7 +287,6 @@ export default function App() {
     setEditingIndex(null);
   };
 
-  // ── PROJECTS ──
   const addProject=()=>{
     if (!newProjectName.trim()) return;
     const id=Date.now();
@@ -303,7 +310,6 @@ export default function App() {
     else { navigator.clipboard.writeText(`${text}\n${url}`).then(()=>{setShareCopied(true);setTimeout(()=>setShareCopied(false),2500);}); }
   };
 
-  // ── SECTION NOTES ──
   const getSectionNote=sn=>song?.sectionNotes?.[sn]||"";
   const setSectionNote=(sn,val)=>updateSong(song.id,s=>({sectionNotes:{...s.sectionNotes,[sn]:val}}));
   const getAudioNotes=sn=>song?.audioNotes?.[sn]||[];
@@ -323,7 +329,7 @@ export default function App() {
         const a=document.createElement("a");
         a.href=url;a.download=`DogBones_${sn}_${id}.webm`;a.click();
         updateSong(song.id,s=>({
-          audioNotes:{...s.audioNotes,[sn]:[...(s.audioNotes?.[sn]||[]),{id,duration:dur,label:`Voice memo ${(s.audioNotes?.[sn]||[]).length+1}`,filename:`DogBones_${sn}_${id}.webm`}]}
+          audioNotes:{...s.audioNotes,[sn]:[...(s.audioNotes?.[sn]||[]),{id,duration:dur,label:`Voice memo ${(s.audioNotes?.[sn]||[]).length+1}`}]}
         }));
         stream.getTracks().forEach(t=>t.stop());
       };
@@ -345,7 +351,7 @@ export default function App() {
     const id=Date.now().toString();
     setAudioURLs(prev=>({...prev,[id]:url}));
     updateSong(song.id,s=>({
-      audioNotes:{...s.audioNotes,[sn]:[...(s.audioNotes?.[sn]||[]),{id,duration:0,label:file.name.replace(/\.[^/.]+$/,""),filename:file.name}]}
+      audioNotes:{...s.audioNotes,[sn]:[...(s.audioNotes?.[sn]||[]),{id,duration:0,label:file.name.replace(/\.[^/.]+$/,"")}]}
     }));
     e.target.value="";
   };
@@ -364,7 +370,61 @@ export default function App() {
     audioRef.current=a;setPlayingId(id);
   };
 
-  // ── STUDIO ──
+  // ── COUNT IN ──
+  const playClick=(ac, time, isAccent)=>{
+    const osc=ac.createOscillator();
+    const gain=ac.createGain();
+    osc.connect(gain);
+    gain.connect(ac.destination);
+    osc.frequency.value=isAccent?1200:800;
+    gain.gain.setValueAtTime(0.8,time);
+    gain.gain.exponentialRampToValueAtTime(0.001,time+0.05);
+    osc.start(time);
+    osc.stop(time+0.06);
+  };
+
+  const startCountIn=(trackId)=>{
+    if (countingIn!==null) return;
+    const bpm=getCurrentBPM();
+    const beatInterval=60/bpm;
+    const totalBeats=8;
+
+    // Create audio context for click track
+    const ac=new (window.AudioContext||window.webkitAudioContext)();
+    audioCtxRef.current=ac;
+
+    let beat=0;
+    setCountingIn(trackId);
+    setCountBeat(0);
+
+    // Schedule all 8 clicks
+    for(let i=0;i<totalBeats;i++){
+      const t=ac.currentTime+(i*beatInterval);
+      playClick(ac,t,i===0||i===4);
+    }
+
+    // Update beat display
+    countIntervalRef.current=setInterval(()=>{
+      beat++;
+      setCountBeat(beat);
+      if (beat>=totalBeats){
+        clearInterval(countIntervalRef.current);
+        setCountingIn(null);
+        setCountBeat(0);
+        // Start recording after count in
+        setTimeout(()=>startStudioRecording(trackId),50);
+      }
+    },beatInterval*1000);
+  };
+
+  const cancelCountIn=()=>{
+    clearInterval(countIntervalRef.current);
+    audioCtxRef.current?.close();
+    setCountingIn(null);
+    setCountBeat(0);
+  };
+
+  // ── STUDIO RECORDING ──
   const startStudioRecording=async(trackId)=>{
     try{
       const stream=await navigator.mediaDevices.getUserMedia({audio:true});
@@ -378,7 +438,6 @@ export default function App() {
         const dur=studioRecordingTime;
         const track=tracks.find(t=>t.id===trackId);
         setStudioAudioURLs(prev=>({...prev,[id]:url}));
-        // Auto download
         const a=document.createElement("a");
         a.href=url;a.download=`DogBones_${track?.name||"track"}_${id}.webm`;a.click();
         updateTrack(trackId,t=>({
@@ -400,13 +459,49 @@ export default function App() {
     setStudioRecordingTrack(null);
   };
 
+  // ── PLAY SINGLE TRACK ──
+  const playTrack=(trackId)=>{
+    const track=tracks.find(t=>t.id===trackId);
+    const latestRec=track?.recordings[track.recordings.length-1];
+    if (!latestRec){ alert("No recording on this track yet."); return; }
+    const url=studioAudioURLs[latestRec.id];
+    if (!url){ alert("Re-upload file to play."); return; }
+
+    // Stop this track if already playing
+    if (playingTrackId===trackId){
+      trackAudioRefs.current[trackId]?.pause();
+      delete trackAudioRefs.current[trackId];
+      setPlayingTrackId(null);
+      return;
+    }
+
+    // Stop any currently playing track
+    if (playingTrackId!==null){
+      trackAudioRefs.current[playingTrackId]?.pause();
+      delete trackAudioRefs.current[playingTrackId];
+    }
+
+    const a=new Audio(url);
+    a.volume=track.volume;
+    a.play();
+    a.onended=()=>{ setPlayingTrackId(null); delete trackAudioRefs.current[trackId]; };
+    trackAudioRefs.current[trackId]=a;
+    setPlayingTrackId(trackId);
+  };
+
+  const stopTrack=(trackId)=>{
+    trackAudioRefs.current[trackId]?.pause();
+    if (trackAudioRefs.current[trackId]) trackAudioRefs.current[trackId].currentTime=0;
+    delete trackAudioRefs.current[trackId];
+    if (playingTrackId===trackId) setPlayingTrackId(null);
+  };
+
   const handleStudioFileUpload=(trackId,e)=>{
     const file=e.target.files?.[0];
     if (!file) return;
     const url=URL.createObjectURL(file);
     const id=Date.now().toString();
     setStudioAudioURLs(prev=>({...prev,[id]:url}));
-    const track=tracks.find(t=>t.id===trackId);
     updateTrack(trackId,t=>({
       recordings:[...t.recordings,{id,duration:0,label:file.name.replace(/\.[^/.]+$/,""),filename:file.name}]
     }));
@@ -416,21 +511,15 @@ export default function App() {
   const deleteStudioRecording=(trackId,recId)=>{
     updateTrack(trackId,t=>({recordings:t.recordings.filter(r=>r.id!==recId)}));
     setStudioAudioURLs(prev=>{const n={...prev};delete n[recId];return n;});
+    if (playingTrackId===trackId) stopTrack(trackId);
   };
 
   const playAllTracks=()=>{
-    // Stop all first
     studioAudioNodes.current.forEach(a=>{try{a.pause();a.currentTime=0;}catch{}});
     studioAudioNodes.current=[];
-
     const hasSolo=tracks.some(t=>t.solo);
-    const activeTracks=tracks.filter(t=>{
-      if (t.muted) return false;
-      if (hasSolo&&!t.solo) return false;
-      return true;
-    });
-
-    activeTracks.forEach(track=>{
+    tracks.forEach(track=>{
+      if (track.muted||(hasSolo&&!track.solo)) return;
       const latestRec=track.recordings[track.recordings.length-1];
       if (!latestRec) return;
       const url=studioAudioURLs[latestRec.id];
@@ -440,19 +529,19 @@ export default function App() {
       a.play().catch(()=>{});
       studioAudioNodes.current.push(a);
     });
-
     setStudioPlaying(true);
-    // Stop after longest track ends (approximate)
-    setTimeout(()=>setStudioPlaying(false),30000);
+    setTimeout(()=>setStudioPlaying(false),60000);
   };
 
   const stopAllTracks=()=>{
     studioAudioNodes.current.forEach(a=>{try{a.pause();a.currentTime=0;}catch{}});
     studioAudioNodes.current=[];
+    Object.values(trackAudioRefs.current).forEach(a=>{try{a.pause();a.currentTime=0;}catch{}});
+    trackAudioRefs.current={};
     setStudioPlaying(false);
+    setPlayingTrackId(null);
   };
 
-  // ── SETLIST ──
   const addToSetlist=n=>updateProject(project.id,p=>({setlist:[...(p.setlist||[]),{id:Date.now(),name:n}]}));
   const removeFromSetlist=id=>updateProject(project.id,p=>({setlist:p.setlist.filter(s=>s.id!==id)}));
   const handleSetlistDragStart=i=>setDraggedSetlist(i);
@@ -488,6 +577,8 @@ export default function App() {
         .pop-in{animation:popIn 0.2s ease forwards;}
         @keyframes recPulse{0%,100%{opacity:1}50%{opacity:0.3}}
         .rec-dot{animation:recPulse 1s ease-in-out infinite;}
+        @keyframes beatPulse{0%{transform:scale(1)}50%{transform:scale(1.3)}100%{transform:scale(1)}}
+        .beat-pulse{animation:beatPulse 0.15s ease-out;}
         @keyframes vuPulse{0%{height:20%}50%{height:80%}100%{height:20%}}
         *{box-sizing:border-box;}
         body{background:${T.bg};margin:0;transition:background 0.3s;}
@@ -501,10 +592,9 @@ export default function App() {
         .chrome-row:hover{background:${T.rowHover}!important;}
         .tab-scroll{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;}
         .tab-scroll::-webkit-scrollbar{display:none;}
-        .lines-btn{display:flex;flex-direction:column;gap:3px;padding:6px 8px;border-radius:8px;cursor:pointer;border:none;background:none;flex-shrink:0;transition:background 0.15s;}
-        .lines-btn:hover{background:${AC}22;}
+        .lines-btn{display:flex;flex-direction:column;gap:3px;padding:6px 8px;border-radius:8px;cursor:pointer;border:none;background:none;flex-shrink:0;}
         .lines-btn .line{width:14px;height:2px;border-radius:1px;}
-        input[type=range]{-webkit-appearance:none;appearance:none;height:4px;border-radius:2px;outline:none;}
+        input[type=range]{-webkit-appearance:none;height:4px;border-radius:2px;outline:none;}
         input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;cursor:pointer;}
       `}</style>
 
@@ -717,7 +807,6 @@ export default function App() {
                 </div>
               )}
             </div>
-            {/* Color picker */}
             <div style={{position:"relative",flexShrink:0}}>
               <button onClick={()=>setColorPickerOpen(!colorPickerOpen)} style={{width:26,height:26,borderRadius:"50%",background:AC,border:"none",cursor:"pointer",boxShadow:`0 0 10px ${AC}`}}/>
               {colorPickerOpen&&(
@@ -747,38 +836,46 @@ export default function App() {
             </div>
           </div>
 
-          {/* ── STUDIO SCREEN ── */}
+          {/* ── STUDIO ── */}
           {isStudio&&(
             <div>
-              {/* Studio Header */}
               <div style={{padding:"14px 16px",borderRadius:14,marginBottom:12,background:T.card,border:`1px solid ${AC}44`}}>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
                   <div>
-                    <h2 style={{color:AC,fontSize:18,fontWeight:700,margin:0,letterSpacing:"0.05em"}}>🎛️ STUDIO</h2>
-                    <p style={{color:T.subtext,fontSize:10,letterSpacing:"0.15em",margin:"2px 0 0"}}>6 TRACK RECORDER — {project?.name?.toUpperCase()}</p>
+                    <h2 style={{color:AC,fontSize:18,fontWeight:700,margin:0}}>🎛️ STUDIO</h2>
+                    <p style={{color:T.subtext,fontSize:10,letterSpacing:"0.12em",margin:"2px 0 0"}}>{project?.name?.toUpperCase()} — {song?.bpm?`${song.bpm} BPM`:"SET BPM IN SONG ARRANGER"}</p>
                   </div>
                   <div style={{display:"flex",gap:8}}>
                     <button onClick={studioPlaying?stopAllTracks:playAllTracks} style={{
-                      background:studioPlaying?`#ff444422`:`${AC}22`,
+                      background:studioPlaying?"#ff444422":`${AC}22`,
                       border:`2px solid ${studioPlaying?"#ff4444":AC}`,
                       color:studioPlaying?"#ff4444":AC,
-                      borderRadius:10,padding:"8px 16px",cursor:"pointer",
-                      fontSize:13,fontWeight:700,
+                      borderRadius:10,padding:"8px 14px",cursor:"pointer",
+                      fontSize:12,fontWeight:700,
                       boxShadow:studioPlaying?`0 0 12px #ff444466`:`0 0 12px ${AC}44`,
-                    }}>
-                      {studioPlaying?"⏹ STOP":"▶ PLAY ALL"}
-                    </button>
+                    }}>{studioPlaying?"⏹ STOP ALL":"▶ PLAY ALL"}</button>
                   </div>
                 </div>
-                <p style={{color:T.subtext,fontSize:10,margin:0,lineHeight:1.6}}>
-                  🎙️ Record each track · 📁 Upload from files · 🔇 Mute · ⭐ Solo · 🎚️ Volume
-                </p>
+
+                {/* Sharing workflow tip */}
+                <div style={{padding:"10px 12px",borderRadius:10,background:`${AC}08`,border:`1px solid ${AC}22`,marginTop:8}}>
+                  <p style={{color:AC,fontSize:10,fontWeight:700,margin:"0 0 4px",letterSpacing:"0.08em"}}>📱 HOW TO SHARE WITH BAND</p>
+                  <p style={{color:T.subtext,fontSize:10,margin:0,lineHeight:1.7}}>
+                    1. Record your part → auto-saves to Downloads<br/>
+                    2. Text the .webm file to your bandmate<br/>
+                    3. They upload it to Track 1 using 📁<br/>
+                    4. They record their part on Track 2<br/>
+                    5. Repeat until all parts are layered!
+                  </p>
+                </div>
               </div>
 
-              {/* 6 Tracks */}
+              {/* Tracks */}
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
                 {tracks.map(track=>{
                   const isRecordingThis=studioRecordingTrack===track.id;
+                  const isCountingInThis=countingIn===track.id;
+                  const isPlayingThis=playingTrackId===track.id;
                   const latestRec=track.recordings[track.recordings.length-1];
                   const hasAudio=latestRec&&studioAudioURLs[latestRec.id];
                   const TC=track.color;
@@ -790,16 +887,10 @@ export default function App() {
                       background:T.card,
                       opacity:track.muted?0.6:1,
                       transition:"all 0.2s",
-                      boxShadow:isRecordingThis?`0 0 16px ${TC}66`:"none",
+                      boxShadow:isRecordingThis?`0 0 20px ${TC}66`:isCountingInThis?`0 0 20px #ffee0066`:"none",
                     }}>
                       {/* Track Header */}
-                      <div style={{
-                        display:"flex",alignItems:"center",gap:8,
-                        padding:"10px 12px",
-                        borderBottom:`1px solid ${TC}22`,
-                        background:`${TC}11`,
-                      }}>
-                        {/* Color dot + name */}
+                      <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 12px",borderBottom:`1px solid ${TC}22`,background:`${TC}11`}}>
                         <div style={{width:10,height:10,borderRadius:"50%",background:TC,flexShrink:0,boxShadow:`0 0 6px ${TC}`}}/>
                         {editingTrackName===track.id?(
                           <div style={{display:"flex",gap:4,flex:1}}>
@@ -816,7 +907,23 @@ export default function App() {
                           </span>
                         )}
 
-                        {/* Recording indicator */}
+                        {/* Count-in beat display */}
+                        {isCountingInThis&&(
+                          <div style={{display:"flex",alignItems:"center",gap:6}}>
+                            {[1,2,3,4,5,6,7,8].map(b=>(
+                              <div key={b} style={{
+                                width:b<=countBeat?10:6,
+                                height:b<=countBeat?10:6,
+                                borderRadius:"50%",
+                                background:b===1||b===5?"#ffee00":b<=countBeat?TC:"rgba(255,255,255,0.2)",
+                                transition:"all 0.05s",
+                                boxShadow:b<=countBeat?`0 0 6px ${b===1||b===5?"#ffee00":TC}`:"none",
+                              }}/>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Recording timer */}
                         {isRecordingThis&&(
                           <div style={{display:"flex",alignItems:"center",gap:4}}>
                             <div className="rec-dot" style={{width:8,height:8,borderRadius:"50%",background:"#ff4444"}}/>
@@ -826,7 +933,7 @@ export default function App() {
 
                         {/* Mute / Solo */}
                         <button onClick={()=>updateTrack(track.id,t=>({muted:!t.muted}))} style={{
-                          background:track.muted?`#ff444422`:"transparent",
+                          background:track.muted?"#ff444422":"transparent",
                           border:`1px solid ${track.muted?"#ff4444":"rgba(128,128,128,0.3)"}`,
                           color:track.muted?"#ff4444":T.subtext,
                           borderRadius:6,padding:"3px 7px",cursor:"pointer",fontSize:10,fontWeight:700,
@@ -843,48 +950,30 @@ export default function App() {
                       <div style={{padding:"10px 12px"}}>
                         {/* Volume */}
                         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-                          <span style={{color:T.subtext,fontSize:9,letterSpacing:"0.1em",width:20}}>🔊</span>
+                          <span style={{color:T.subtext,fontSize:9,width:16}}>🔊</span>
                           <input type="range" min="0" max="1" step="0.05"
                             value={track.volume}
                             onChange={e=>updateTrack(track.id,()=>({volume:parseFloat(e.target.value)}))}
-                            style={{flex:1,accentColor:TC,background:`linear-gradient(to right, ${TC} ${track.volume*100}%, ${T.border} ${track.volume*100}%)`}}/>
+                            style={{flex:1,accentColor:TC,background:`linear-gradient(to right,${TC} ${track.volume*100}%,${T.border} ${track.volume*100}%)`}}/>
                           <span style={{color:TC,fontSize:9,width:28,textAlign:"right"}}>{Math.round(track.volume*100)}%</span>
                         </div>
 
-                        {/* Waveform / recording display */}
-                        <div style={{
-                          height:40,borderRadius:8,marginBottom:10,
-                          background:darkMode?"#050a05":"#f0f4f0",
-                          border:`1px solid ${TC}33`,
-                          display:"flex",alignItems:"center",justifyContent:"center",
-                          overflow:"hidden",gap:2,padding:"0 8px",
-                        }}>
-                          {isRecordingThis?(
-                            // Animated waveform while recording
+                        {/* Waveform */}
+                        <div style={{height:36,borderRadius:8,marginBottom:10,background:darkMode?"#050a05":"#f0f4f0",border:`1px solid ${TC}33`,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",gap:2,padding:"0 8px"}}>
+                          {isRecordingThis||isCountingInThis?(
                             [...Array(20)].map((_,i)=>(
-                              <div key={i} style={{
-                                width:3,borderRadius:2,
-                                background:TC,
-                                animation:`vuPulse ${0.4+Math.random()*0.6}s ease-in-out infinite`,
-                                animationDelay:`${i*0.05}s`,
-                                minHeight:4,
-                              }}/>
+                              <div key={i} style={{width:3,borderRadius:2,background:isCountingInThis?"#ffee00":TC,animation:`vuPulse ${0.3+Math.random()*0.5}s ease-in-out infinite`,animationDelay:`${i*0.05}s`,minHeight:4}}/>
                             ))
                           ):latestRec?(
-                            // Static waveform bars
                             [...Array(20)].map((_,i)=>(
-                              <div key={i} style={{
-                                width:3,borderRadius:2,
-                                height:`${20+Math.sin(i*0.8)*30+Math.cos(i*1.2)*15}%`,
-                                background:`${TC}${hasAudio?"cc":"44"}`,
-                              }}/>
+                              <div key={i} style={{width:3,borderRadius:2,height:`${20+Math.sin(i*0.8)*30+Math.cos(i*1.2)*15}%`,background:`${TC}${hasAudio?"cc":"44"}`}}/>
                             ))
                           ):(
                             <span style={{color:T.subtext,fontSize:10}}>No recording</span>
                           )}
                         </div>
 
-                        {/* Latest recording info */}
+                        {/* Latest recording */}
                         {latestRec&&(
                           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,padding:"6px 10px",borderRadius:8,background:`${TC}11`,border:`1px solid ${TC}22`}}>
                             <span style={{color:TC,fontSize:11,fontWeight:600,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{latestRec.label}</span>
@@ -894,10 +983,10 @@ export default function App() {
                           </div>
                         )}
 
-                        {/* All recordings */}
+                        {/* Previous takes */}
                         {track.recordings.length>1&&(
                           <div style={{marginBottom:10}}>
-                            <p style={{color:T.subtext,fontSize:9,letterSpacing:"0.1em",marginBottom:6}}>ALL TAKES ({track.recordings.length})</p>
+                            <p style={{color:T.subtext,fontSize:9,letterSpacing:"0.1em",marginBottom:6}}>PREVIOUS TAKES</p>
                             <div style={{display:"flex",flexDirection:"column",gap:4}}>
                               {track.recordings.slice(0,-1).map(rec=>(
                                 <div key={rec.id} style={{display:"flex",alignItems:"center",gap:6,padding:"4px 8px",borderRadius:6,background:T.cardBg,border:`1px solid ${T.border}`}}>
@@ -910,61 +999,112 @@ export default function App() {
                           </div>
                         )}
 
-                        {/* Action buttons */}
-                        <div style={{display:"flex",gap:8}}>
+                        {/* ── ACTION BUTTONS: PLAY · COUNT IN · RECORD · STOP · UPLOAD ── */}
+                        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+
+                          {/* PLAY */}
+                          <button
+                            onClick={()=>playTrack(track.id)}
+                            disabled={!latestRec}
+                            style={{
+                              flex:1,padding:"9px 6px",borderRadius:10,
+                              background:isPlayingThis?`${TC}33`:`${TC}11`,
+                              border:`1px solid ${TC}${isPlayingThis?"99":"44"}`,
+                              color:!latestRec?T.subtext:TC,
+                              cursor:!latestRec?"not-allowed":"pointer",
+                              fontSize:11,fontWeight:700,
+                              boxShadow:isPlayingThis?`0 0 10px ${TC}44`:"none",
+                            }}>
+                            {isPlayingThis?"⏸ PAUSE":"▶ PLAY"}
+                          </button>
+
+                          {/* STOP */}
+                          <button
+                            onClick={()=>stopTrack(track.id)}
+                            disabled={!isPlayingThis&&!isRecordingThis&&!isCountingInThis}
+                            style={{
+                              flex:1,padding:"9px 6px",borderRadius:10,
+                              background:"#ff444411",
+                              border:`1px solid #ff4444${isPlayingThis||isRecordingThis||isCountingInThis?"88":"22"}`,
+                              color:isPlayingThis||isRecordingThis||isCountingInThis?"#ff4444":T.subtext,
+                              cursor:isPlayingThis||isRecordingThis||isCountingInThis?"pointer":"not-allowed",
+                              fontSize:11,fontWeight:700,
+                            }}
+                            onClick={()=>{
+                              if (isRecordingThis) stopStudioRecording();
+                              else if (isCountingInThis) cancelCountIn();
+                              else stopTrack(track.id);
+                            }}>
+                            ⏹ STOP
+                          </button>
+
+                          {/* COUNT IN + RECORD */}
                           {isRecordingThis?(
                             <button onClick={stopStudioRecording} style={{
-                              flex:1,padding:"10px",borderRadius:10,
+                              flex:2,padding:"9px 6px",borderRadius:10,
                               background:"#ff444422",border:"2px solid #ff4444",
-                              color:"#ff4444",cursor:"pointer",fontSize:12,fontWeight:700,
-                              boxShadow:"0 0 12px #ff444444",
-                            }}>⏹ STOP</button>
+                              color:"#ff4444",cursor:"pointer",fontSize:11,fontWeight:700,
+                              boxShadow:"0 0 10px #ff444444",
+                            }}>🔴 REC {fmtTime(studioRecordingTime)}</button>
+                          ):isCountingInThis?(
+                            <button onClick={cancelCountIn} style={{
+                              flex:2,padding:"9px 6px",borderRadius:10,
+                              background:"#ffee0022",border:"2px solid #ffee00",
+                              color:"#ffee00",cursor:"pointer",fontSize:11,fontWeight:700,
+                              boxShadow:"0 0 10px #ffee0044",
+                            }}>🥁 {countBeat}/8 — TAP TO CANCEL</button>
                           ):(
-                            <button onClick={()=>{if(studioRecordingTrack!==null)return;startStudioRecording(track.id);}} style={{
-                              flex:1,padding:"10px",borderRadius:10,
+                            <button onClick={()=>{if(studioRecordingTrack!==null||countingIn!==null)return;startCountIn(track.id);}} style={{
+                              flex:2,padding:"9px 6px",borderRadius:10,
                               background:`${TC}22`,border:`1px solid ${TC}66`,
-                              color:studioRecordingTrack!==null?T.subtext:TC,
-                              cursor:studioRecordingTrack!==null?"not-allowed":"pointer",
-                              fontSize:12,fontWeight:700,
+                              color:studioRecordingTrack!==null||countingIn!==null?T.subtext:TC,
+                              cursor:studioRecordingTrack!==null||countingIn!==null?"not-allowed":"pointer",
+                              fontSize:11,fontWeight:700,
                               boxShadow:`0 0 8px ${TC}33`,
-                            }}>🎙️ RECORD</button>
+                            }}>🎙️ REC</button>
                           )}
-                          <button onClick={()=>{
-                            studioFileTrackId.current=track.id;
-                            studioFileInputRef.current?.click();
-                          }} style={{
-                            padding:"10px 14px",borderRadius:10,
+
+                          {/* UPLOAD */}
+                          <button onClick={()=>{studioFileTrackId.current=track.id;studioFileInputRef.current?.click();}} style={{
+                            padding:"9px 10px",borderRadius:10,
                             background:`${TC}11`,border:`1px solid ${TC}44`,
-                            color:TC,cursor:"pointer",fontSize:12,fontWeight:700,
+                            color:TC,cursor:"pointer",fontSize:13,fontWeight:700,
                           }}>📁</button>
                         </div>
+
+                        {/* Count-in info */}
+                        {!song?.bpm&&(
+                          <p style={{color:"#ff9500",fontSize:9,marginTop:6,margin:"6px 0 0"}}>
+                            ⚠ Set BPM in Song Arranger for accurate count-in tempo
+                          </p>
+                        )}
                       </div>
                     </div>
                   );
                 })}
               </div>
 
-              {/* Hidden file input for studio */}
               <input ref={studioFileInputRef} type="file" accept="audio/*" style={{display:"none"}}
                 onChange={e=>{
-                  if (studioFileTrackId.current!==null) {
+                  if (studioFileTrackId.current!==null){
                     handleStudioFileUpload(studioFileTrackId.current,e);
                     studioFileTrackId.current=null;
                   }
                 }}/>
 
-              {/* Mix tip */}
               <div style={{marginTop:12,padding:"12px 16px",borderRadius:12,background:T.cardBg,border:`1px solid ${T.border}`}}>
                 <p style={{color:T.subtext,fontSize:10,lineHeight:1.8,margin:0}}>
-                  <span style={{color:AC}}>▸</span> Tap track name to rename · <span style={{color:AC}}>▸</span> M = mute · S = solo<br/>
-                  <span style={{color:AC}}>▸</span> PLAY ALL plays all unmuted tracks together · <span style={{color:AC}}>▸</span> 📁 uploads from Samsung Voice Recorder<br/>
-                  <span style={{color:AC}}>▸</span> Recordings auto-save to your Downloads folder
+                  <span style={{color:AC}}>▸</span> Tap track name to rename &nbsp;
+                  <span style={{color:AC}}>▸</span> 🎙️ REC = 8 count then records &nbsp;
+                  <span style={{color:AC}}>▸</span> Yellow dots = count-in beats<br/>
+                  <span style={{color:AC}}>▸</span> Count-in uses BPM from Song Arranger &nbsp;
+                  <span style={{color:AC}}>▸</span> Recordings save to Downloads folder
                 </p>
               </div>
             </div>
           )}
 
-          {/* ── SETLIST ── */}
+          {/* SETLIST */}
           {isSetlist&&(
             <div style={{padding:"16px",borderRadius:14,background:T.card,border:`1px solid ${AC}44`}}>
               <h2 style={{color:AC,fontSize:16,fontWeight:700,letterSpacing:"0.1em",marginBottom:4}}>📋 SETLIST BUILDER</h2>
@@ -992,10 +1132,9 @@ export default function App() {
             </div>
           )}
 
-          {/* ── SONGS SCREEN ── */}
+          {/* SONGS */}
           {!isStudio&&!isSetlist&&(
             <div>
-              {/* Song Tabs */}
               <div className="tab-scroll" style={{marginBottom:12}}>
                 {project.songs.map((s,i)=>(
                   <button key={i} onClick={()=>setActiveTab(i)} style={{
@@ -1070,7 +1209,6 @@ export default function App() {
                 </div>
               ):(
                 <div>
-                  {/* Song Name */}
                   <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,padding:"10px 14px",borderRadius:12,background:T.card,border:`1px solid ${getSongColor(C)}44`}}>
                     <div style={{width:8,height:8,borderRadius:"50%",background:getSongColor(C),flexShrink:0,boxShadow:`0 0 6px ${getSongColor(C)}`}}/>
                     {editingSongName?(
@@ -1087,7 +1225,6 @@ export default function App() {
                     )}
                   </div>
 
-                  {/* Add Section + Instruments */}
                   <div style={{display:"flex",gap:8,marginBottom:10}}>
                     <div style={{flex:1,display:"flex",gap:8,padding:"10px 14px",borderRadius:12,background:T.card,border:`1px solid ${getSongColor(C)}33`}}>
                       <input style={inp({borderColor:`${getSongColor(C)}33`,fontSize:12})} placeholder="New section..." value={newSection}
@@ -1100,7 +1237,6 @@ export default function App() {
                       borderRadius:12,padding:"0 12px",cursor:"pointer",
                       display:"flex",flexDirection:"column",alignItems:"center",
                       justifyContent:"center",gap:3,minWidth:70,
-                      boxShadow:instrPanelOpen?`0 0 12px ${getSongColor(C)}66`:`0 0 6px ${getSongColor(C)}33`,
                     }}>
                       <img src="/launchericon-192x192.png" style={{width:26,height:26,objectFit:"cover",mixBlendMode:"screen",filter:"sepia(1) saturate(3) hue-rotate(70deg) brightness(1.3)"}}/>
                       <span style={{color:getSongColor(C),fontSize:8,fontWeight:700,textAlign:"center"}}>INSTRUMENTS</span>
@@ -1126,7 +1262,6 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* Legend */}
                   <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:10,padding:"8px 14px",borderRadius:10,background:T.cardBg,border:`1px solid ${T.border}`}}>
                     <span style={{color:T.subtext,fontSize:10,letterSpacing:"0.1em"}}>CLAIMED BY:</span>
                     {project.songs.map(s=>(
@@ -1137,7 +1272,6 @@ export default function App() {
                     ))}
                   </div>
 
-                  {/* Table */}
                   <div className="table-wrap" style={{border:`1px solid ${getSongColor(C)}33`}}>
                     <table className="section-table">
                       <thead>
@@ -1151,10 +1285,10 @@ export default function App() {
                       </thead>
                       <tbody>
                         {song.sections.map((section,ri)=>{
-                          const isLocked =!!song.locked?.[ri];
+                          const isLocked=!!song.locked?.[ri];
                           const isStarred=!!song.starred?.[ri];
-                          const status   =song.status?.[ri]||"Draft";
-                          const hasNote  =!!getSectionNote(section);
+                          const status=song.status?.[ri]||"Draft";
+                          const hasNote=!!getSectionNote(section);
                           const audioCount=(song.audioNotes?.[section]||[]).length;
                           const SC=getSongColor(C);
                           return(
@@ -1215,7 +1349,7 @@ export default function App() {
                                 );
                               })}
                               <td style={{padding:"6px 8px",textAlign:"center",whiteSpace:"nowrap"}}>
-                                <button onClick={()=>cycleStatus(ri)} style={{background:`${STATUS_COLORS[status]}22`,border:`1px solid ${STATUS_COLORS[status]}66`,color:STATUS_COLORS[status],borderRadius:6,padding:"2px 6px",fontSize:9,fontWeight:700,cursor:"pointer",letterSpacing:"0.05em",marginBottom:4,display:"block",width:"100%"}}>{status.toUpperCase()}</button>
+                                <button onClick={()=>cycleStatus(ri)} style={{background:`${STATUS_COLORS[status]}22`,border:`1px solid ${STATUS_COLORS[status]}66`,color:STATUS_COLORS[status],borderRadius:6,padding:"2px 6px",fontSize:9,fontWeight:700,cursor:"pointer",marginBottom:4,display:"block",width:"100%"}}>{status.toUpperCase()}</button>
                                 <div style={{display:"flex",justifyContent:"center",gap:2,flexWrap:"wrap"}}>
                                   <button className="icon-btn" onClick={()=>setAudioNoteOpen(section)} style={{position:"relative",color:audioCount>0?SC:T.subtext}}>
                                     🎙️{audioCount>0&&<span style={{position:"absolute",top:-2,right:-2,background:SC,color:darkMode?"#000":"#fff",fontSize:7,fontWeight:700,borderRadius:4,padding:"0 2px",minWidth:10,textAlign:"center"}}>{audioCount}</span>}
@@ -1233,7 +1367,6 @@ export default function App() {
                     </table>
                   </div>
 
-                  {/* Bottom Cards */}
                   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:10,marginTop:12}}>
                     <div style={{borderRadius:14,padding:14,background:T.card,border:`1px solid ${getSongColor(C)}33`,position:"relative"}}>
                       <h2 style={{color:getSongColor(C),fontSize:12,fontWeight:700,marginBottom:8,letterSpacing:"0.1em"}}>NOTES</h2>
@@ -1250,8 +1383,8 @@ export default function App() {
                     <div style={{borderRadius:14,padding:14,background:T.card,border:`1px solid ${getSongColor(C)}33`}}>
                       <h2 style={{color:getSongColor(C),fontSize:12,fontWeight:700,marginBottom:8,letterSpacing:"0.1em"}}>TIPS</h2>
                       <ul style={{fontSize:11,color:T.subtext,lineHeight:2,listStyle:"none",padding:0}}>
-                        <li><span style={{color:getSongColor(C)}}>▸</span> ☰ tap = notes · hold = drag</li>
-                        <li><span style={{color:getSongColor(C)}}>▸</span> 🎙️ = section audio ideas</li>
+                        <li><span style={{color:getSongColor(C)}}>▸</span> ☰ tap=notes · hold=drag</li>
+                        <li><span style={{color:getSongColor(C)}}>▸</span> Set BPM for count-in tempo</li>
                         <li><span style={{color:getSongColor(C)}}>▸</span> ☰ menu → 🎛️ STUDIO</li>
                         <li><span style={{color:getSongColor(C)}}>▸</span> 🎨 dot = change app color</li>
                       </ul>
@@ -1281,4 +1414,4 @@ export default function App() {
       )}
     </>
   );
-                     }
+               }
