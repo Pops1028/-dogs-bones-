@@ -16,6 +16,14 @@ const PROJECT_COLORS = [
   "#ff0080","#00ff80","#8080ff","#ff8000",
 ];
 
+const TRACK_COLORS = [
+  "#39ff14","#00cfff","#bf5fff","#ff9500","#ff3366","#ffee00"
+];
+
+const TRACK_NAMES = [
+  "Guitar","Bass","Drums","Vocals","Lead Guitar","Keys"
+];
+
 const DEFAULT_SECTIONS = [
   "Intro","Pre-Verse","Verse","Chorus","Between Verse",
   "2nd Verse","Breakdown","Guitar Solo","Interlude","Chorus Outro",
@@ -38,6 +46,14 @@ function makeDefaultSongs() {
   }));
 }
 
+function makeDefaultTracks() {
+  return TRACK_NAMES.map((name,i) => ({
+    id:i, name, color:TRACK_COLORS[i],
+    recordings:[], // {id, label, duration, filename}
+    volume:0.8, muted:false, solo:false,
+  }));
+}
+
 function makeProject(id, name, color) {
   return {
     id, name, color,
@@ -45,13 +61,14 @@ function makeProject(id, name, color) {
     instruments:[...DEFAULT_INSTRUMENTS],
     songs:makeDefaultSongs(),
     checks:{}, setlist:[],
+    studio:{ tracks:makeDefaultTracks() },
   };
 }
 
-const STORAGE_KEY   = "db_v9";
-const STORAGE_AP    = "db_ap_v9";
-const STORAGE_THEME = "db_theme_v9";
-const STORAGE_ACCENT= "db_accent_v9";
+const STORAGE_KEY   = "db_v10";
+const STORAGE_AP    = "db_ap_v10";
+const STORAGE_THEME = "db_theme_v10";
+const STORAGE_ACCENT= "db_accent_v10";
 
 function load(key, fallback) {
   try { const v=localStorage.getItem(key); return v?JSON.parse(v):fallback; }
@@ -98,14 +115,29 @@ export default function App() {
   const [recordingTime,      setRecordingTime]      = useState(0);
   const [audioURLs,          setAudioURLs]          = useState({});
   const [playingId,          setPlayingId]          = useState(null);
-  const [longPressTimer,     setLongPressTimer]     = useState(null);
   const [isDragging,         setIsDragging]         = useState(false);
+  const [longPressTimer,     setLongPressTimer]     = useState(null);
 
-  const mediaRecorderRef  = useRef(null);
-  const audioChunksRef    = useRef([]);
-  const recordingTimerRef = useRef(null);
-  const audioRef          = useRef(null);
-  const fileInputRef      = useRef(null);
+  // Studio state
+  const [studioRecordingTrack, setStudioRecordingTrack] = useState(null);
+  const [studioRecordingTime,  setStudioRecordingTime]  = useState(0);
+  const [studioPlaying,        setStudioPlaying]        = useState(false);
+  const [studioAudioURLs,      setStudioAudioURLs]      = useState({});
+  const [editingTrackName,     setEditingTrackName]     = useState(null);
+  const [trackNameValue,       setTrackNameValue]       = useState("");
+
+  const mediaRecorderRef      = useRef(null);
+  const audioChunksRef        = useRef([]);
+  const recordingTimerRef     = useRef(null);
+  const audioRef              = useRef(null);
+  const fileInputRef          = useRef(null);
+  const studioMediaRef        = useRef(null);
+  const studioChunksRef       = useRef([]);
+  const studioTimerRef        = useRef(null);
+  const studioAudioNodes      = useRef([]);
+  const fileInputSectionRef   = useRef(null);
+  const studioFileInputRef    = useRef(null);
+  const studioFileTrackId     = useRef(null);
 
   useEffect(()=>{ save(STORAGE_KEY,   projects);      },[projects]);
   useEffect(()=>{ save(STORAGE_AP,    activeProject); },[activeProject]);
@@ -132,44 +164,32 @@ export default function App() {
   const instruments  = project?.instruments||DEFAULT_INSTRUMENTS;
   const isMerge      = activeTab===4;
   const isSetlist    = screen==="setlist";
+  const isStudio     = screen==="studio";
   const projectColor = project?.color||accentColor;
   const C            = song?.color?.hex||projectColor;
+  const tracks       = project?.studio?.tracks||makeDefaultTracks();
+  const AC           = accentColor;
 
-  // Replace green with chosen accent in song colors
-  const getSongColor = (songColorHex) => {
-    if (songColorHex === "#39ff14") return accentColor;
-    return songColorHex;
-  };
+  const getSongColor=(hex)=> hex==="#39ff14" ? AC : hex;
 
-  // Theme — light mode uses navy/dark text
   const T = darkMode ? {
-    bg:"#000",
-    card:"linear-gradient(145deg,#0a0f0a,#111811)",
-    cardBg:"#080d08",
-    text:"#ccc", subtext:"#555",
+    bg:"#000", card:"linear-gradient(145deg,#0a0f0a,#111811)",
+    cardBg:"#080d08", text:"#ccc", subtext:"#555",
     inputBg:"#050a05", inputBorder:"rgba(255,255,255,0.1)",
-    rowHover:"rgba(255,255,255,0.02)",
-    stickyBg:"#080d08", headBg:"#111811",
-    border:"rgba(255,255,255,0.08)",
-    checkBg:"#000",
+    rowHover:"rgba(255,255,255,0.02)", stickyBg:"#080d08",
+    headBg:"#111811", border:"rgba(255,255,255,0.08)", checkBg:"#000",
   } : {
-    bg:"#f2f4f8",
-    card:"linear-gradient(145deg,#ffffff,#f5f7fc)",
-    cardBg:"#ffffff",
-    text:"#0a1628", subtext:"#4a5568",
+    bg:"#f2f4f8", card:"linear-gradient(145deg,#ffffff,#f5f7fc)",
+    cardBg:"#ffffff", text:"#0a1628", subtext:"#4a5568",
     inputBg:"#ffffff", inputBorder:"rgba(10,22,40,0.2)",
-    rowHover:"rgba(10,22,40,0.03)",
-    stickyBg:"#ffffff", headBg:"#eef1f8",
-    border:"rgba(10,22,40,0.1)",
-    checkBg:"#fff",
+    rowHover:"rgba(10,22,40,0.03)", stickyBg:"#ffffff",
+    headBg:"#eef1f8", border:"rgba(10,22,40,0.1)", checkBg:"#fff",
   };
 
   const inp=(extra={})=>({
-    background:T.inputBg,
-    border:`1px solid ${T.inputBorder}`,
-    color:T.text, borderRadius:8,
-    padding:"8px 12px", width:"100%",
-    outline:"none", fontSize:13, ...extra,
+    background:T.inputBg, border:`1px solid ${T.inputBorder}`,
+    color:T.text, borderRadius:8, padding:"8px 12px",
+    width:"100%", outline:"none", fontSize:13, ...extra,
   });
 
   const updateProject=(id,fn)=>
@@ -180,8 +200,16 @@ export default function App() {
       songs:p.songs.map(s=>s.id===songId?{...s,...fn(s)}:s)
     }));
 
-  const ckKey=(sn,ci)=>`${sn}--${ci}`;
+  const updateTrack=(trackId,fn)=>
+    updateProject(project.id,p=>({
+      studio:{
+        ...p.studio,
+        tracks:(p.studio?.tracks||makeDefaultTracks()).map(t=>t.id===trackId?{...t,...fn(t)}:t)
+      }
+    }));
 
+  // ── CHECKS ──
+  const ckKey=(sn,ci)=>`${sn}--${ci}`;
   const toggleChecked=(sectionName,colIndex,songId)=>{
     const ri=song.sections.indexOf(sectionName);
     if (song.locked?.[ri]) return;
@@ -191,27 +219,26 @@ export default function App() {
       return{checks:{...p.checks,[k]:cur.includes(songId)?cur.filter(id=>id!==songId):[...cur,songId]}};
     });
   };
-
   const getColors=(sn,ci)=>{
     const k=ckKey(sn,ci);
     return (Array.isArray(project.checks?.[k])?project.checks[k]:[])
       .map(id=>project.songs.find(s=>s.id===id)?.color).filter(Boolean);
   };
-
   const isMine=(sn,ci,songId)=>{
     const k=ckKey(sn,ci);
     return Array.isArray(project.checks?.[k])&&project.checks[k].includes(songId);
   };
 
+  // ── INSTRUMENTS ──
   const addInstrument=()=>{
     if (!newInstrument.trim()||instruments.includes(newInstrument.trim())) return;
     updateProject(project.id,p=>({instruments:[...(p.instruments||DEFAULT_INSTRUMENTS),newInstrument.trim()]}));
     setNewInstrument("");
   };
-
   const removeInstrument=inst=>
     updateProject(project.id,p=>({instruments:(p.instruments||DEFAULT_INSTRUMENTS).filter(i=>i!==inst)}));
 
+  // ── SECTION ──
   const toggleLocked =ri=>updateSong(song.id,s=>({locked:{...s.locked,[ri]:!s.locked?.[ri]}}));
   const toggleStarred=ri=>updateSong(song.id,s=>({starred:{...s.starred,[ri]:!s.starred?.[ri]}}));
   const cycleStatus  =ri=>{
@@ -221,42 +248,30 @@ export default function App() {
       return{status:{...s.status,[ri]:STATUS_OPTIONS[(STATUS_OPTIONS.indexOf(cur)+1)%STATUS_OPTIONS.length]}};
     });
   };
-
-  // Long press for drag, tap for section note
   const handleLinesTouchStart=(ri,section)=>{
     setIsDragging(false);
-    const timer=setTimeout(()=>{
-      setIsDragging(true);
-      handleDragStart(ri);
-    },400);
+    const timer=setTimeout(()=>{setIsDragging(true);handleDragStart(ri);},400);
     setLongPressTimer(timer);
   };
-
   const handleLinesTouchEnd=(ri,section)=>{
     clearTimeout(longPressTimer);
-    if (!isDragging) {
-      setSectionNoteOpen(section);
-    }
+    if (!isDragging) setSectionNoteOpen(section);
     setIsDragging(false);
   };
-
   const handleDragStart=i=>setDraggedIndex(i);
   const handleDrop=ti=>{
     if (draggedIndex===null||song.locked?.[draggedIndex]) return;
     const upd=[...song.sections];const [it]=upd.splice(draggedIndex,1);upd.splice(ti,0,it);
     updateSong(song.id,()=>({sections:upd}));setDraggedIndex(null);
   };
-
   const addSection=()=>{
     if (!newSection.trim()) return;
     updateSong(song.id,s=>({sections:[...s.sections,newSection.trim()]}));setNewSection("");
   };
-
   const removeSection=i=>{
     if (song.locked?.[i]) return;
     updateSong(song.id,s=>({sections:s.sections.filter((_,idx)=>idx!==i)}));
   };
-
   const startEdit=i=>{if(song.locked?.[i])return;setEditingIndex(i);setEditingValue(song.sections[i]);};
   const saveEdit=()=>{
     if (!editingValue.trim()) return;
@@ -264,19 +279,18 @@ export default function App() {
     setEditingIndex(null);
   };
 
+  // ── PROJECTS ──
   const addProject=()=>{
     if (!newProjectName.trim()) return;
-    const id=Date.now();const color=accentColor;
-    setProjects(prev=>[...prev,makeProject(id,newProjectName.trim(),color)]);
+    const id=Date.now();
+    setProjects(prev=>[...prev,makeProject(id,newProjectName.trim(),AC)]);
     setActiveProject(id);setNewProjectName("");setMenuOpen(false);setActiveTab(0);
   };
-
   const deleteProject=id=>{
     if (projects.length===1) return;
     setProjects(prev=>prev.filter(p=>p.id!==id));
     if (activeProject===id) setActiveProject(projects[0].id);
   };
-
   const switchProject=id=>{setActiveProject(id);setMenuOpen(false);setActiveTab(0);setScreen("songs");};
   const saveProjectName=()=>{if(!projectNameValue.trim())return;updateProject(project.id,()=>({name:projectNameValue.trim()}));setEditingProjectName(false);};
   const saveProjectSongName=()=>{if(!projectSongValue.trim())return;updateProject(project.id,()=>({songName:projectSongValue.trim()}));setEditingProjectSong(false);};
@@ -289,6 +303,7 @@ export default function App() {
     else { navigator.clipboard.writeText(`${text}\n${url}`).then(()=>{setShareCopied(true);setTimeout(()=>setShareCopied(false),2500);}); }
   };
 
+  // ── SECTION NOTES ──
   const getSectionNote=sn=>song?.sectionNotes?.[sn]||"";
   const setSectionNote=(sn,val)=>updateSong(song.id,s=>({sectionNotes:{...s.sectionNotes,[sn]:val}}));
   const getAudioNotes=sn=>song?.audioNotes?.[sn]||[];
@@ -316,17 +331,13 @@ export default function App() {
       mediaRecorderRef.current=mr;
       setRecording(true);setRecordingTime(0);
       recordingTimerRef.current=setInterval(()=>setRecordingTime(t=>t+1),1000);
-    }catch(e){
-      alert("Microphone access denied. Please allow microphone in your browser settings.");
-    }
+    }catch(e){ alert("Microphone access denied."); }
   };
-
   const stopRecording=()=>{
     mediaRecorderRef.current?.stop();
     clearInterval(recordingTimerRef.current);
     setRecording(false);
   };
-
   const handleFileUpload=(sn,e)=>{
     const file=e.target.files?.[0];
     if (!file) return;
@@ -338,23 +349,110 @@ export default function App() {
     }));
     e.target.value="";
   };
-
   const deleteAudioNote=(sn,id)=>{
     updateSong(song.id,s=>({audioNotes:{...s.audioNotes,[sn]:(s.audioNotes?.[sn]||[]).filter(a=>a.id!==id)}}));
     setAudioURLs(prev=>{const n={...prev};delete n[id];return n;});
     if (playingId===id){audioRef.current?.pause();setPlayingId(null);}
   };
-
   const playAudio=id=>{
     const url=audioURLs[id];
     if (audioRef.current){audioRef.current.pause();audioRef.current=null;}
     if (playingId===id){setPlayingId(null);return;}
-    if (!url){alert("Recording expired. Re-record or re-upload after refresh.");return;}
+    if (!url){alert("Re-record or re-upload after refresh.");return;}
     const a=new Audio(url);
     a.play();a.onended=()=>setPlayingId(null);
     audioRef.current=a;setPlayingId(id);
   };
 
+  // ── STUDIO ──
+  const startStudioRecording=async(trackId)=>{
+    try{
+      const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+      const mr=new MediaRecorder(stream);
+      studioChunksRef.current=[];
+      mr.ondataavailable=e=>studioChunksRef.current.push(e.data);
+      mr.onstop=()=>{
+        const blob=new Blob(studioChunksRef.current,{type:"audio/webm"});
+        const url=URL.createObjectURL(blob);
+        const id=Date.now().toString();
+        const dur=studioRecordingTime;
+        const track=tracks.find(t=>t.id===trackId);
+        setStudioAudioURLs(prev=>({...prev,[id]:url}));
+        // Auto download
+        const a=document.createElement("a");
+        a.href=url;a.download=`DogBones_${track?.name||"track"}_${id}.webm`;a.click();
+        updateTrack(trackId,t=>({
+          recordings:[...t.recordings,{id,duration:dur,label:`Take ${t.recordings.length+1}`,filename:`DogBones_${track?.name||"track"}_${id}.webm`}]
+        }));
+        stream.getTracks().forEach(t=>t.stop());
+      };
+      mr.start();
+      studioMediaRef.current=mr;
+      setStudioRecordingTrack(trackId);
+      setStudioRecordingTime(0);
+      studioTimerRef.current=setInterval(()=>setStudioRecordingTime(t=>t+1),1000);
+    }catch(e){ alert("Microphone access denied."); }
+  };
+
+  const stopStudioRecording=()=>{
+    studioMediaRef.current?.stop();
+    clearInterval(studioTimerRef.current);
+    setStudioRecordingTrack(null);
+  };
+
+  const handleStudioFileUpload=(trackId,e)=>{
+    const file=e.target.files?.[0];
+    if (!file) return;
+    const url=URL.createObjectURL(file);
+    const id=Date.now().toString();
+    setStudioAudioURLs(prev=>({...prev,[id]:url}));
+    const track=tracks.find(t=>t.id===trackId);
+    updateTrack(trackId,t=>({
+      recordings:[...t.recordings,{id,duration:0,label:file.name.replace(/\.[^/.]+$/,""),filename:file.name}]
+    }));
+    e.target.value="";
+  };
+
+  const deleteStudioRecording=(trackId,recId)=>{
+    updateTrack(trackId,t=>({recordings:t.recordings.filter(r=>r.id!==recId)}));
+    setStudioAudioURLs(prev=>{const n={...prev};delete n[recId];return n;});
+  };
+
+  const playAllTracks=()=>{
+    // Stop all first
+    studioAudioNodes.current.forEach(a=>{try{a.pause();a.currentTime=0;}catch{}});
+    studioAudioNodes.current=[];
+
+    const hasSolo=tracks.some(t=>t.solo);
+    const activeTracks=tracks.filter(t=>{
+      if (t.muted) return false;
+      if (hasSolo&&!t.solo) return false;
+      return true;
+    });
+
+    activeTracks.forEach(track=>{
+      const latestRec=track.recordings[track.recordings.length-1];
+      if (!latestRec) return;
+      const url=studioAudioURLs[latestRec.id];
+      if (!url) return;
+      const a=new Audio(url);
+      a.volume=track.volume;
+      a.play().catch(()=>{});
+      studioAudioNodes.current.push(a);
+    });
+
+    setStudioPlaying(true);
+    // Stop after longest track ends (approximate)
+    setTimeout(()=>setStudioPlaying(false),30000);
+  };
+
+  const stopAllTracks=()=>{
+    studioAudioNodes.current.forEach(a=>{try{a.pause();a.currentTime=0;}catch{}});
+    studioAudioNodes.current=[];
+    setStudioPlaying(false);
+  };
+
+  // ── SETLIST ──
   const addToSetlist=n=>updateProject(project.id,p=>({setlist:[...(p.setlist||[]),{id:Date.now(),name:n}]}));
   const removeFromSetlist=id=>updateProject(project.id,p=>({setlist:p.setlist.filter(s=>s.id!==id)}));
   const handleSetlistDragStart=i=>setDraggedSetlist(i);
@@ -371,14 +469,11 @@ export default function App() {
     borderBottom:`1px solid ${color}44`,
     background:darkMode?"#0a0f0a":"#f0f4ff",
   });
-
   const doneBtn=(color)=>({
     background:`${color}22`,border:`1px solid ${color}66`,
     color,borderRadius:8,padding:"6px 14px",
     cursor:"pointer",fontSize:12,fontWeight:700,
   });
-
-  const AC = accentColor; // global accent replaces green
 
   return (
     <>
@@ -393,6 +488,7 @@ export default function App() {
         .pop-in{animation:popIn 0.2s ease forwards;}
         @keyframes recPulse{0%,100%{opacity:1}50%{opacity:0.3}}
         .rec-dot{animation:recPulse 1s ease-in-out infinite;}
+        @keyframes vuPulse{0%{height:20%}50%{height:80%}100%{height:20%}}
         *{box-sizing:border-box;}
         body{background:${T.bg};margin:0;transition:background 0.3s;}
         .icon-btn{background:none;border:none;cursor:pointer;padding:4px 5px;border-radius:6px;font-size:13px;line-height:1;transition:background 0.15s;}
@@ -405,14 +501,11 @@ export default function App() {
         .chrome-row:hover{background:${T.rowHover}!important;}
         .tab-scroll{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;}
         .tab-scroll::-webkit-scrollbar{display:none;}
-        .lines-btn{
-          display:flex;flex-direction:column;gap:3px;
-          padding:6px 8px;border-radius:8px;cursor:pointer;
-          border:none;background:none;flex-shrink:0;
-          transition:background 0.15s;
-        }
+        .lines-btn{display:flex;flex-direction:column;gap:3px;padding:6px 8px;border-radius:8px;cursor:pointer;border:none;background:none;flex-shrink:0;transition:background 0.15s;}
         .lines-btn:hover{background:${AC}22;}
         .lines-btn .line{width:14px;height:2px;border-radius:1px;}
+        input[type=range]{-webkit-appearance:none;appearance:none;height:4px;border-radius:2px;outline:none;}
+        input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;cursor:pointer;}
       `}</style>
 
       {/* SECTION NOTE MODAL */}
@@ -421,9 +514,6 @@ export default function App() {
           <div style={modalHeader(AC)}>
             <div style={{width:8,height:8,borderRadius:"50%",background:AC,boxShadow:`0 0 6px ${AC}`}}/>
             <span style={{color:AC,fontWeight:700,fontSize:14,flex:1}}>📝 {sectionNoteOpen}</span>
-            {getSectionNote(sectionNoteOpen)&&(
-              <span style={{color:AC,fontSize:10,opacity:0.7}}>{getSectionNote(sectionNoteOpen).length} chars</span>
-            )}
             <button onClick={()=>setSectionNoteOpen(null)} style={doneBtn(AC)}>✓ DONE</button>
           </div>
           <textarea style={{flex:1,resize:"none",fontFamily:"monospace",fontSize:15,border:"none",padding:"20px",lineHeight:1.8,background:T.bg,color:T.text,outline:"none"}}
@@ -441,7 +531,7 @@ export default function App() {
             <span style={{color:AC,fontWeight:700,fontSize:14,flex:1}}>🎙️ {audioNoteOpen}</span>
             <button onClick={()=>{if(recording)stopRecording();setAudioNoteOpen(null);}} style={doneBtn(AC)}>✓ DONE</button>
           </div>
-          <div style={{flex:1,padding:"20px",overflowY:"auto",background:T.bg}}>
+          <div style={{flex:1,padding:"20px",overflowY:"auto"}}>
             <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:16,padding:"20px 0",borderBottom:`1px solid ${AC}22`,marginBottom:20}}>
               {recording?(
                 <>
@@ -450,45 +540,40 @@ export default function App() {
                     <span style={{color:"#ff4444",fontWeight:700,fontSize:22}}>{fmtTime(recordingTime)}</span>
                   </div>
                   <button onClick={stopRecording} style={{background:"#ff444422",border:"2px solid #ff4444",color:"#ff4444",borderRadius:"50%",width:80,height:80,fontSize:28,cursor:"pointer",boxShadow:"0 0 24px #ff444466"}}>⏹</button>
-                  <span style={{color:"#ff4444",fontSize:11,letterSpacing:"0.1em"}}>TAP TO STOP & SAVE TO DOWNLOADS</span>
+                  <span style={{color:"#ff4444",fontSize:11,letterSpacing:"0.1em"}}>TAP TO STOP & SAVE</span>
                 </>
               ):(
                 <>
                   <button onClick={()=>startRecording(audioNoteOpen)} style={{background:`${AC}22`,border:`2px solid ${AC}`,color:AC,borderRadius:"50%",width:80,height:80,fontSize:32,cursor:"pointer",boxShadow:`0 0 24px ${AC}44`}}>🎙️</button>
                   <span style={{color:AC,fontSize:11,letterSpacing:"0.1em"}}>TAP TO RECORD</span>
-                  <p style={{color:T.subtext,fontSize:10,textAlign:"center",maxWidth:240,lineHeight:1.6}}>Saves to your Downloads folder automatically</p>
+                  <p style={{color:T.subtext,fontSize:10,textAlign:"center",maxWidth:240,lineHeight:1.6}}>Saves to Downloads automatically</p>
+                  <div style={{width:"100%",marginTop:4}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                      <div style={{flex:1,height:1,background:`${AC}22`}}/>
+                      <span style={{color:T.subtext,fontSize:10}}>OR UPLOAD</span>
+                      <div style={{flex:1,height:1,background:`${AC}22`}}/>
+                    </div>
+                    <input ref={fileInputRef} type="file" accept="audio/*" style={{display:"none"}} onChange={e=>handleFileUpload(audioNoteOpen,e)}/>
+                    <button onClick={()=>fileInputRef.current?.click()} style={{width:"100%",padding:"12px",borderRadius:12,background:`${AC}11`,border:`1px solid ${AC}44`,color:AC,cursor:"pointer",fontSize:12,fontWeight:700}}>
+                      📁 UPLOAD FROM FILES
+                    </button>
+                  </div>
                 </>
               )}
-              {!recording&&(
-                <div style={{width:"100%",marginTop:8}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-                    <div style={{flex:1,height:1,background:`${AC}22`}}/>
-                    <span style={{color:T.subtext,fontSize:10,letterSpacing:"0.1em"}}>OR UPLOAD</span>
-                    <div style={{flex:1,height:1,background:`${AC}22`}}/>
-                  </div>
-                  <input ref={fileInputRef} type="file" accept="audio/*" style={{display:"none"}} onChange={e=>handleFileUpload(audioNoteOpen,e)}/>
-                  <button onClick={()=>fileInputRef.current?.click()} style={{width:"100%",padding:"12px",borderRadius:12,background:`${AC}11`,border:`1px solid ${AC}44`,color:AC,cursor:"pointer",fontSize:12,fontWeight:700,letterSpacing:"0.08em"}}>
-                    📁 UPLOAD FROM SAMSUNG VOICE RECORDER
-                  </button>
-                </div>
-              )}
             </div>
-            <h3 style={{color:AC,fontSize:12,fontWeight:700,letterSpacing:"0.1em",marginBottom:12}}>RECORDINGS ({getAudioNotes(audioNoteOpen).length})</h3>
+            <h3 style={{color:AC,fontSize:12,fontWeight:700,marginBottom:12}}>RECORDINGS ({getAudioNotes(audioNoteOpen).length})</h3>
             {getAudioNotes(audioNoteOpen).length===0?(
               <p style={{color:T.subtext,fontSize:12,textAlign:"center",padding:"20px 0"}}>No recordings yet!</p>
             ):(
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
                 {getAudioNotes(audioNoteOpen).map(a=>(
                   <div key={a.id} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",borderRadius:12,background:T.cardBg,border:`1px solid ${AC}33`}}>
-                    <button onClick={()=>playAudio(a.id)} style={{width:40,height:40,borderRadius:"50%",border:`2px solid ${AC}`,background:playingId===a.id?`${AC}33`:"transparent",color:AC,cursor:"pointer",fontSize:18,flexShrink:0,boxShadow:playingId===a.id?`0 0 12px ${AC}66`:"none"}}>
+                    <button onClick={()=>playAudio(a.id)} style={{width:40,height:40,borderRadius:"50%",border:`2px solid ${AC}`,background:playingId===a.id?`${AC}33`:"transparent",color:AC,cursor:"pointer",fontSize:18,flexShrink:0}}>
                       {playingId===a.id?"⏸":"▶"}
                     </button>
                     <div style={{flex:1,overflow:"hidden"}}>
                       <div style={{color:T.text,fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.label}</div>
-                      <div style={{display:"flex",gap:8,marginTop:2}}>
-                        {a.duration>0&&<span style={{color:T.subtext,fontSize:10}}>{fmtTime(a.duration)}</span>}
-                        {audioURLs[a.id]?<span style={{color:AC,fontSize:9}}>● ready</span>:<span style={{color:"#ff9500",fontSize:9}}>⚠ re-upload</span>}
-                      </div>
+                      <div style={{color:T.subtext,fontSize:10}}>{a.duration>0?fmtTime(a.duration):""} {audioURLs[a.id]?"● ready":"⚠ re-upload"}</div>
                     </div>
                     <button className="icon-btn" onClick={()=>deleteAudioNote(audioNoteOpen,a.id)} style={{color:"#ff4444"}}>🗑️</button>
                   </div>
@@ -526,7 +611,6 @@ export default function App() {
               <img src={LOGO_TEXT} alt="Dog Bones" style={{width:"100%",maxWidth:200,height:40,objectFit:"cover",objectPosition:"center",mixBlendMode:"screen",display:"block",marginBottom:4}}/>
               <p style={{color:`${AC}88`,fontSize:9,letterSpacing:"0.3em",margin:0}}>PROJECTS</p>
             </div>
-
             <div style={{flex:1,overflowY:"auto",padding:"12px 0"}}>
               {projects.map(p=>(
                 <div key={p.id} onClick={()=>switchProject(p.id)} style={{
@@ -545,7 +629,6 @@ export default function App() {
                 </div>
               ))}
             </div>
-
             <div style={{padding:"12px 16px",borderTop:`1px solid ${AC}22`,background:darkMode?"#0a0f0a":"#f0f4ff"}}>
               <p style={{color:T.subtext,fontSize:10,letterSpacing:"0.2em",marginBottom:8}}>NEW PROJECT</p>
               <div style={{display:"flex",gap:8}}>
@@ -554,9 +637,12 @@ export default function App() {
                 <button onClick={addProject} style={{background:`${AC}22`,border:`1px solid ${AC}66`,color:AC,borderRadius:8,padding:"6px 12px",cursor:"pointer",fontSize:13,fontWeight:700,whiteSpace:"nowrap"}}>+ ADD</button>
               </div>
             </div>
-
             <div style={{padding:"12px 16px",borderTop:`1px solid ${AC}22`,display:"flex",flexDirection:"column",gap:8}}>
-              {[{label:"🎵 SONG ARRANGER",val:"songs"},{label:"📋 SETLIST BUILDER",val:"setlist"}].map(({label,val})=>(
+              {[
+                {label:"🎵 SONG ARRANGER",val:"songs"},
+                {label:"🎛️ STUDIO",val:"studio"},
+                {label:"📋 SETLIST BUILDER",val:"setlist"},
+              ].map(({label,val})=>(
                 <button key={val} onClick={()=>{setScreen(val);setMenuOpen(false);}} style={{
                   background:screen===val?`${AC}22`:"transparent",
                   border:`1px solid ${screen===val?AC+"66":"rgba(128,128,128,0.2)"}`,
@@ -565,7 +651,6 @@ export default function App() {
                   fontSize:12,fontWeight:700,letterSpacing:"0.1em",textAlign:"left",
                 }}>{label}</button>
               ))}
-
               <button onClick={()=>setDarkMode(!darkMode)} style={{
                 background:darkMode?"rgba(255,238,0,0.08)":"rgba(10,22,40,0.05)",
                 border:`1px solid ${darkMode?"rgba(255,238,0,0.3)":"rgba(10,22,40,0.15)"}`,
@@ -573,15 +658,13 @@ export default function App() {
                 borderRadius:8,padding:"8px 12px",cursor:"pointer",
                 fontSize:12,fontWeight:700,letterSpacing:"0.1em",textAlign:"left",
               }}>{darkMode?"☀️ LIGHT MODE":"🌙 DARK MODE"}</button>
-
               <button onClick={shareApp} style={{
                 background:shareCopied?`${AC}33`:`${AC}11`,
                 border:`1px solid ${AC}66`,color:AC,
                 borderRadius:8,padding:"8px 12px",cursor:"pointer",
-                fontSize:12,fontWeight:700,letterSpacing:"0.1em",textAlign:"left",
-                transition:"all 0.2s",
+                fontSize:12,fontWeight:700,letterSpacing:"0.1em",textAlign:"left",transition:"all 0.2s",
               }}>{shareCopied?"✅ LINK COPIED!":"📤 SHARE APP WITH BAND"}</button>
-              <p style={{color:T.subtext,fontSize:10,lineHeight:1.6,margin:0}}>Open in Chrome → Add to Home Screen. No login needed!</p>
+              <p style={{color:T.subtext,fontSize:10,lineHeight:1.6,margin:0}}>Open in Chrome → Add to Home Screen!</p>
             </div>
           </div>
         </div>
@@ -598,9 +681,7 @@ export default function App() {
                 {[0,1,2].map(i=><div key={i} style={{width:20,height:2,borderRadius:1,background:AC,boxShadow:`0 0 4px ${AC}`}}/>)}
               </div>
             </button>
-
             <img src={LOGO_TEXT} alt="Dog Bones" style={{height:36,objectFit:"contain",mixBlendMode:darkMode?"screen":"multiply",flexShrink:0}}/>
-
             <div style={{flex:1,overflow:"hidden"}}>
               {editingProjectName?(
                 <div style={{display:"flex",gap:4}}>
@@ -636,8 +717,7 @@ export default function App() {
                 </div>
               )}
             </div>
-
-            {/* Color picker — changes global accent */}
+            {/* Color picker */}
             <div style={{position:"relative",flexShrink:0}}>
               <button onClick={()=>setColorPickerOpen(!colorPickerOpen)} style={{width:26,height:26,borderRadius:"50%",background:AC,border:"none",cursor:"pointer",boxShadow:`0 0 10px ${AC}`}}/>
               {colorPickerOpen&&(
@@ -656,22 +736,236 @@ export default function App() {
                     <div style={{flex:1}}>
                       <div style={{fontSize:10,color:T.subtext,marginBottom:4}}>{customColor}</div>
                       <button onClick={()=>{setAccentColor(customColor);updateProject(project.id,()=>({color:customColor}));setColorPickerOpen(false);}}
-                        style={{width:"100%",background:`${customColor}22`,border:`1px solid ${customColor}66`,color:customColor,borderRadius:8,padding:"6px",cursor:"pointer",fontSize:11,fontWeight:700}}>
-                        ✓ APPLY
-                      </button>
+                        style={{width:"100%",background:`${customColor}22`,border:`1px solid ${customColor}66`,color:customColor,borderRadius:8,padding:"6px",cursor:"pointer",fontSize:11,fontWeight:700}}>✓ APPLY</button>
                     </div>
                   </div>
                 </div>
               )}
             </div>
-
             <div style={{width:40,height:40,borderRadius:8,overflow:"hidden",border:`1px solid ${AC}44`,flexShrink:0,boxShadow:`0 0 10px ${AC}44`}}>
               <img src="/launchericon-192x192.png" alt="Logo" style={{width:40,height:40,objectFit:"cover",mixBlendMode:"screen",filter:"sepia(1) saturate(3) hue-rotate(70deg) brightness(1.2)"}}/>
             </div>
           </div>
 
-          {/* SETLIST */}
-          {isSetlist?(
+          {/* ── STUDIO SCREEN ── */}
+          {isStudio&&(
+            <div>
+              {/* Studio Header */}
+              <div style={{padding:"14px 16px",borderRadius:14,marginBottom:12,background:T.card,border:`1px solid ${AC}44`}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                  <div>
+                    <h2 style={{color:AC,fontSize:18,fontWeight:700,margin:0,letterSpacing:"0.05em"}}>🎛️ STUDIO</h2>
+                    <p style={{color:T.subtext,fontSize:10,letterSpacing:"0.15em",margin:"2px 0 0"}}>6 TRACK RECORDER — {project?.name?.toUpperCase()}</p>
+                  </div>
+                  <div style={{display:"flex",gap:8}}>
+                    <button onClick={studioPlaying?stopAllTracks:playAllTracks} style={{
+                      background:studioPlaying?`#ff444422`:`${AC}22`,
+                      border:`2px solid ${studioPlaying?"#ff4444":AC}`,
+                      color:studioPlaying?"#ff4444":AC,
+                      borderRadius:10,padding:"8px 16px",cursor:"pointer",
+                      fontSize:13,fontWeight:700,
+                      boxShadow:studioPlaying?`0 0 12px #ff444466`:`0 0 12px ${AC}44`,
+                    }}>
+                      {studioPlaying?"⏹ STOP":"▶ PLAY ALL"}
+                    </button>
+                  </div>
+                </div>
+                <p style={{color:T.subtext,fontSize:10,margin:0,lineHeight:1.6}}>
+                  🎙️ Record each track · 📁 Upload from files · 🔇 Mute · ⭐ Solo · 🎚️ Volume
+                </p>
+              </div>
+
+              {/* 6 Tracks */}
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {tracks.map(track=>{
+                  const isRecordingThis=studioRecordingTrack===track.id;
+                  const latestRec=track.recordings[track.recordings.length-1];
+                  const hasAudio=latestRec&&studioAudioURLs[latestRec.id];
+                  const TC=track.color;
+
+                  return(
+                    <div key={track.id} style={{
+                      borderRadius:14,overflow:"hidden",
+                      border:`1px solid ${TC}${track.muted?"22":"55"}`,
+                      background:T.card,
+                      opacity:track.muted?0.6:1,
+                      transition:"all 0.2s",
+                      boxShadow:isRecordingThis?`0 0 16px ${TC}66`:"none",
+                    }}>
+                      {/* Track Header */}
+                      <div style={{
+                        display:"flex",alignItems:"center",gap:8,
+                        padding:"10px 12px",
+                        borderBottom:`1px solid ${TC}22`,
+                        background:`${TC}11`,
+                      }}>
+                        {/* Color dot + name */}
+                        <div style={{width:10,height:10,borderRadius:"50%",background:TC,flexShrink:0,boxShadow:`0 0 6px ${TC}`}}/>
+                        {editingTrackName===track.id?(
+                          <div style={{display:"flex",gap:4,flex:1}}>
+                            <input style={inp({padding:"3px 8px",fontSize:12,borderColor:`${TC}66`})}
+                              value={trackNameValue} onChange={e=>setTrackNameValue(e.target.value)}
+                              onKeyDown={e=>{if(e.key==="Enter"){updateTrack(track.id,()=>({name:trackNameValue.trim()}));setEditingTrackName(null);}}}
+                              autoFocus/>
+                            <button className="icon-btn" onClick={()=>{updateTrack(track.id,()=>({name:trackNameValue.trim()}));setEditingTrackName(null);}} style={{color:TC}}>✓</button>
+                          </div>
+                        ):(
+                          <span onClick={()=>{setEditingTrackName(track.id);setTrackNameValue(track.name);}}
+                            style={{color:TC,fontWeight:700,fontSize:13,flex:1,cursor:"pointer"}}>
+                            {track.name}
+                          </span>
+                        )}
+
+                        {/* Recording indicator */}
+                        {isRecordingThis&&(
+                          <div style={{display:"flex",alignItems:"center",gap:4}}>
+                            <div className="rec-dot" style={{width:8,height:8,borderRadius:"50%",background:"#ff4444"}}/>
+                            <span style={{color:"#ff4444",fontSize:11,fontWeight:700}}>{fmtTime(studioRecordingTime)}</span>
+                          </div>
+                        )}
+
+                        {/* Mute / Solo */}
+                        <button onClick={()=>updateTrack(track.id,t=>({muted:!t.muted}))} style={{
+                          background:track.muted?`#ff444422`:"transparent",
+                          border:`1px solid ${track.muted?"#ff4444":"rgba(128,128,128,0.3)"}`,
+                          color:track.muted?"#ff4444":T.subtext,
+                          borderRadius:6,padding:"3px 7px",cursor:"pointer",fontSize:10,fontWeight:700,
+                        }}>M</button>
+                        <button onClick={()=>updateTrack(track.id,t=>({solo:!t.solo}))} style={{
+                          background:track.solo?`${TC}33`:"transparent",
+                          border:`1px solid ${track.solo?TC:"rgba(128,128,128,0.3)"}`,
+                          color:track.solo?TC:T.subtext,
+                          borderRadius:6,padding:"3px 7px",cursor:"pointer",fontSize:10,fontWeight:700,
+                        }}>S</button>
+                      </div>
+
+                      {/* Track Body */}
+                      <div style={{padding:"10px 12px"}}>
+                        {/* Volume */}
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                          <span style={{color:T.subtext,fontSize:9,letterSpacing:"0.1em",width:20}}>🔊</span>
+                          <input type="range" min="0" max="1" step="0.05"
+                            value={track.volume}
+                            onChange={e=>updateTrack(track.id,()=>({volume:parseFloat(e.target.value)}))}
+                            style={{flex:1,accentColor:TC,background:`linear-gradient(to right, ${TC} ${track.volume*100}%, ${T.border} ${track.volume*100}%)`}}/>
+                          <span style={{color:TC,fontSize:9,width:28,textAlign:"right"}}>{Math.round(track.volume*100)}%</span>
+                        </div>
+
+                        {/* Waveform / recording display */}
+                        <div style={{
+                          height:40,borderRadius:8,marginBottom:10,
+                          background:darkMode?"#050a05":"#f0f4f0",
+                          border:`1px solid ${TC}33`,
+                          display:"flex",alignItems:"center",justifyContent:"center",
+                          overflow:"hidden",gap:2,padding:"0 8px",
+                        }}>
+                          {isRecordingThis?(
+                            // Animated waveform while recording
+                            [...Array(20)].map((_,i)=>(
+                              <div key={i} style={{
+                                width:3,borderRadius:2,
+                                background:TC,
+                                animation:`vuPulse ${0.4+Math.random()*0.6}s ease-in-out infinite`,
+                                animationDelay:`${i*0.05}s`,
+                                minHeight:4,
+                              }}/>
+                            ))
+                          ):latestRec?(
+                            // Static waveform bars
+                            [...Array(20)].map((_,i)=>(
+                              <div key={i} style={{
+                                width:3,borderRadius:2,
+                                height:`${20+Math.sin(i*0.8)*30+Math.cos(i*1.2)*15}%`,
+                                background:`${TC}${hasAudio?"cc":"44"}`,
+                              }}/>
+                            ))
+                          ):(
+                            <span style={{color:T.subtext,fontSize:10}}>No recording</span>
+                          )}
+                        </div>
+
+                        {/* Latest recording info */}
+                        {latestRec&&(
+                          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,padding:"6px 10px",borderRadius:8,background:`${TC}11`,border:`1px solid ${TC}22`}}>
+                            <span style={{color:TC,fontSize:11,fontWeight:600,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{latestRec.label}</span>
+                            {latestRec.duration>0&&<span style={{color:T.subtext,fontSize:10}}>{fmtTime(latestRec.duration)}</span>}
+                            {hasAudio?<span style={{color:TC,fontSize:9}}>● ready</span>:<span style={{color:"#ff9500",fontSize:9}}>⚠ re-upload</span>}
+                            <button className="icon-btn" onClick={()=>deleteStudioRecording(track.id,latestRec.id)} style={{color:"#ff4444",fontSize:11}}>🗑️</button>
+                          </div>
+                        )}
+
+                        {/* All recordings */}
+                        {track.recordings.length>1&&(
+                          <div style={{marginBottom:10}}>
+                            <p style={{color:T.subtext,fontSize:9,letterSpacing:"0.1em",marginBottom:6}}>ALL TAKES ({track.recordings.length})</p>
+                            <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                              {track.recordings.slice(0,-1).map(rec=>(
+                                <div key={rec.id} style={{display:"flex",alignItems:"center",gap:6,padding:"4px 8px",borderRadius:6,background:T.cardBg,border:`1px solid ${T.border}`}}>
+                                  <span style={{color:T.subtext,fontSize:10,flex:1}}>{rec.label}</span>
+                                  {rec.duration>0&&<span style={{color:T.subtext,fontSize:9}}>{fmtTime(rec.duration)}</span>}
+                                  <button className="icon-btn" onClick={()=>deleteStudioRecording(track.id,rec.id)} style={{color:"#ff444488",fontSize:11}}>🗑️</button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Action buttons */}
+                        <div style={{display:"flex",gap:8}}>
+                          {isRecordingThis?(
+                            <button onClick={stopStudioRecording} style={{
+                              flex:1,padding:"10px",borderRadius:10,
+                              background:"#ff444422",border:"2px solid #ff4444",
+                              color:"#ff4444",cursor:"pointer",fontSize:12,fontWeight:700,
+                              boxShadow:"0 0 12px #ff444444",
+                            }}>⏹ STOP</button>
+                          ):(
+                            <button onClick={()=>{if(studioRecordingTrack!==null)return;startStudioRecording(track.id);}} style={{
+                              flex:1,padding:"10px",borderRadius:10,
+                              background:`${TC}22`,border:`1px solid ${TC}66`,
+                              color:studioRecordingTrack!==null?T.subtext:TC,
+                              cursor:studioRecordingTrack!==null?"not-allowed":"pointer",
+                              fontSize:12,fontWeight:700,
+                              boxShadow:`0 0 8px ${TC}33`,
+                            }}>🎙️ RECORD</button>
+                          )}
+                          <button onClick={()=>{
+                            studioFileTrackId.current=track.id;
+                            studioFileInputRef.current?.click();
+                          }} style={{
+                            padding:"10px 14px",borderRadius:10,
+                            background:`${TC}11`,border:`1px solid ${TC}44`,
+                            color:TC,cursor:"pointer",fontSize:12,fontWeight:700,
+                          }}>📁</button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Hidden file input for studio */}
+              <input ref={studioFileInputRef} type="file" accept="audio/*" style={{display:"none"}}
+                onChange={e=>{
+                  if (studioFileTrackId.current!==null) {
+                    handleStudioFileUpload(studioFileTrackId.current,e);
+                    studioFileTrackId.current=null;
+                  }
+                }}/>
+
+              {/* Mix tip */}
+              <div style={{marginTop:12,padding:"12px 16px",borderRadius:12,background:T.cardBg,border:`1px solid ${T.border}`}}>
+                <p style={{color:T.subtext,fontSize:10,lineHeight:1.8,margin:0}}>
+                  <span style={{color:AC}}>▸</span> Tap track name to rename · <span style={{color:AC}}>▸</span> M = mute · S = solo<br/>
+                  <span style={{color:AC}}>▸</span> PLAY ALL plays all unmuted tracks together · <span style={{color:AC}}>▸</span> 📁 uploads from Samsung Voice Recorder<br/>
+                  <span style={{color:AC}}>▸</span> Recordings auto-save to your Downloads folder
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* ── SETLIST ── */}
+          {isSetlist&&(
             <div style={{padding:"16px",borderRadius:14,background:T.card,border:`1px solid ${AC}44`}}>
               <h2 style={{color:AC,fontSize:16,fontWeight:700,letterSpacing:"0.1em",marginBottom:4}}>📋 SETLIST BUILDER</h2>
               <p style={{color:T.subtext,fontSize:11,letterSpacing:"0.15em",marginBottom:16}}>DRAG TO REORDER</p>
@@ -681,7 +975,7 @@ export default function App() {
                 ))}
               </div>
               {(project.setlist||[]).length===0?(
-                <p style={{color:T.subtext,fontSize:12,textAlign:"center",padding:"20px 0"}}>Tap a song above to add it to the setlist</p>
+                <p style={{color:T.subtext,fontSize:12,textAlign:"center",padding:"20px 0"}}>Tap a song above to add to setlist</p>
               ):(
                 <div style={{display:"flex",flexDirection:"column",gap:8}}>
                   {(project.setlist||[]).map((item,index)=>(
@@ -696,7 +990,10 @@ export default function App() {
                 </div>
               )}
             </div>
-          ):(
+          )}
+
+          {/* ── SONGS SCREEN ── */}
+          {!isStudio&&!isSetlist&&(
             <div>
               {/* Song Tabs */}
               <div className="tab-scroll" style={{marginBottom:12}}>
@@ -721,7 +1018,6 @@ export default function App() {
                 }}>⚡ MERGE</button>
               </div>
 
-              {/* MERGE */}
               {isMerge?(
                 <div>
                   <div style={{padding:"14px 16px",borderRadius:14,marginBottom:12,background:T.card,border:`1px solid ${T.border}`}}>
@@ -740,7 +1036,7 @@ export default function App() {
                     <table className="section-table">
                       <thead>
                         <tr style={{background:T.headBg}}>
-                          <th className="sticky-col-head" style={{padding:"10px 12px",borderBottom:`1px solid ${T.border}`,textAlign:"left",fontSize:10,color:T.subtext,letterSpacing:"0.1em",minWidth:120,background:T.headBg}}>SECTION</th>
+                          <th className="sticky-col-head" style={{padding:"10px 12px",borderBottom:`1px solid ${T.border}`,textAlign:"left",fontSize:10,color:T.subtext,minWidth:160,background:T.headBg}}>SECTION</th>
                           {instruments.map(inst=>(
                             <th key={inst} style={{padding:"10px 8px",borderBottom:`1px solid ${T.border}`,textAlign:"center",fontSize:9,color:T.subtext,minWidth:72,whiteSpace:"nowrap"}}>{inst.toUpperCase()}</th>
                           ))}
@@ -749,13 +1045,13 @@ export default function App() {
                       <tbody>
                         {allSections.map(section=>(
                           <tr key={section} style={{borderBottom:`1px solid ${T.border}`}}>
-                            <td className="sticky-col" style={{padding:"9px 12px",fontSize:11,color:T.text,fontWeight:600,minWidth:120,background:T.stickyBg}}>{section}</td>
+                            <td className="sticky-col" style={{padding:"9px 12px",fontSize:11,color:T.text,fontWeight:600,minWidth:160,background:T.stickyBg}}>{section}</td>
                             {instruments.map((_,ci)=>{
                               const colors=getColors(section,ci);
                               return(
                                 <td key={ci} style={{padding:"8px",textAlign:"center"}}>
                                   {colors.length===0?(
-                                    <div style={{width:18,height:18,margin:"0 auto",border:`2px solid ${T.border}`,borderRadius:4,background:"transparent"}}/>
+                                    <div style={{width:18,height:18,margin:"0 auto",border:`2px solid ${T.border}`,borderRadius:4}}/>
                                   ):(
                                     <div style={{display:"flex",gap:2,justifyContent:"center",flexWrap:"wrap"}}>
                                       {colors.map((c,i)=>(
@@ -805,14 +1101,12 @@ export default function App() {
                       display:"flex",flexDirection:"column",alignItems:"center",
                       justifyContent:"center",gap:3,minWidth:70,
                       boxShadow:instrPanelOpen?`0 0 12px ${getSongColor(C)}66`:`0 0 6px ${getSongColor(C)}33`,
-                      transition:"all 0.2s",
                     }}>
                       <img src="/launchericon-192x192.png" style={{width:26,height:26,objectFit:"cover",mixBlendMode:"screen",filter:"sepia(1) saturate(3) hue-rotate(70deg) brightness(1.3)"}}/>
-                      <span style={{color:getSongColor(C),fontSize:8,fontWeight:700,letterSpacing:"0.06em",textAlign:"center"}}>INSTRUMENTS</span>
+                      <span style={{color:getSongColor(C),fontSize:8,fontWeight:700,textAlign:"center"}}>INSTRUMENTS</span>
                     </button>
                   </div>
 
-                  {/* Instrument Panel */}
                   {instrPanelOpen&&(
                     <div style={{marginBottom:12,padding:"14px 16px",borderRadius:14,background:T.card,border:`1px solid ${AC}44`}}>
                       <h3 style={{color:AC,fontSize:12,fontWeight:700,letterSpacing:"0.1em",marginBottom:10}}>MANAGE INSTRUMENTS</h3>
@@ -862,17 +1156,14 @@ export default function App() {
                           const status   =song.status?.[ri]||"Draft";
                           const hasNote  =!!getSectionNote(section);
                           const audioCount=(song.audioNotes?.[section]||[]).length;
-                          const SC = getSongColor(C);
+                          const SC=getSongColor(C);
                           return(
-                            <tr key={section+ri}
-                              draggable={!isLocked}
+                            <tr key={section+ri} draggable={!isLocked}
                               onDragStart={()=>!isLocked&&handleDragStart(ri)}
                               onDragOver={e=>e.preventDefault()}
                               onDrop={()=>handleDrop(ri)}
                               className="chrome-row"
                               style={{borderBottom:`1px solid ${SC}18`,opacity:draggedIndex===ri?0.4:1,cursor:isLocked?"default":"grab",background:isStarred?`${SC}08`:"transparent"}}>
-
-                              {/* STICKY SECTION CELL with ☰ that taps=notes, longpress=drag */}
                               <td className="sticky-col" style={{padding:"6px 8px",fontSize:11,color:isLocked?T.subtext:T.text,fontWeight:600,minWidth:160,background:isStarred?`${SC}10`:T.stickyBg}}>
                                 {editingIndex===ri?(
                                   <div style={{display:"flex",gap:4}}>
@@ -882,27 +1173,17 @@ export default function App() {
                                   </div>
                                 ):(
                                   <div style={{display:"flex",alignItems:"center",gap:6}}>
-                                    {/* ☰ button — tap=notes, longpress=drag */}
-                                    <button
-                                      className="lines-btn"
+                                    <button className="lines-btn"
                                       onTouchStart={()=>handleLinesTouchStart(ri,section)}
                                       onTouchEnd={()=>handleLinesTouchEnd(ri,section)}
                                       onClick={()=>!isDragging&&setSectionNoteOpen(section)}
-                                      style={{position:"relative"}}
-                                      title="Tap for notes · Hold to drag"
-                                    >
+                                      style={{position:"relative"}}>
                                       {[0,1,2].map(i=>(
                                         <div key={i} className="line" style={{background:hasNote?SC:`${SC}66`}}/>
                                       ))}
-                                      {/* Dot indicator when has note */}
-                                      {hasNote&&(
-                                        <div style={{position:"absolute",top:2,right:2,width:6,height:6,borderRadius:"50%",background:SC,boxShadow:`0 0 4px ${SC}`}}/>
-                                      )}
-                                      {audioCount>0&&(
-                                        <div style={{position:"absolute",bottom:2,right:2,background:SC,color:darkMode?"#000":"#fff",fontSize:7,fontWeight:700,borderRadius:4,padding:"0 2px",minWidth:10,textAlign:"center"}}>{audioCount}</div>
-                                      )}
+                                      {hasNote&&<div style={{position:"absolute",top:2,right:2,width:6,height:6,borderRadius:"50%",background:SC,boxShadow:`0 0 4px ${SC}`}}/>}
+                                      {audioCount>0&&<div style={{position:"absolute",bottom:2,right:2,background:SC,color:darkMode?"#000":"#fff",fontSize:7,fontWeight:700,borderRadius:4,padding:"0 2px",minWidth:10,textAlign:"center"}}>{audioCount}</div>}
                                     </button>
-
                                     <div style={{flex:1,overflow:"hidden"}}>
                                       <div style={{display:"flex",alignItems:"center",gap:4}}>
                                         {isStarred&&<span style={{fontSize:10}}>⭐</span>}
@@ -913,12 +1194,10 @@ export default function App() {
                                   </div>
                                 )}
                               </td>
-
-                              {/* Instrument checkboxes */}
                               {instruments.map((_,ci)=>{
-                                const colors =getColors(section,ci);
+                                const colors=getColors(section,ci);
                                 const myCheck=isMine(section,ci,song.id);
-                                const others =colors.filter(c=>getSongColor(c.hex)!==SC);
+                                const others=colors.filter(c=>getSongColor(c.hex)!==SC);
                                 return(
                                   <td key={ci} style={{padding:"6px 8px",textAlign:"center"}}>
                                     <div onClick={()=>!isLocked&&toggleChecked(section,ci,song.id)}
@@ -930,21 +1209,16 @@ export default function App() {
                                           ))}
                                         </div>
                                       )}
-                                      {myCheck&&(
-                                        <div style={{position:"absolute",left:4,top:1,width:8,height:12,border:`2px solid ${SC}`,borderTop:"none",borderLeft:"none",transform:"rotate(45deg)"}}/>
-                                      )}
+                                      {myCheck&&<div style={{position:"absolute",left:4,top:1,width:8,height:12,border:`2px solid ${SC}`,borderTop:"none",borderLeft:"none",transform:"rotate(45deg)"}}/>}
                                     </div>
                                   </td>
                                 );
                               })}
-
-                              {/* Status / Actions */}
                               <td style={{padding:"6px 8px",textAlign:"center",whiteSpace:"nowrap"}}>
                                 <button onClick={()=>cycleStatus(ri)} style={{background:`${STATUS_COLORS[status]}22`,border:`1px solid ${STATUS_COLORS[status]}66`,color:STATUS_COLORS[status],borderRadius:6,padding:"2px 6px",fontSize:9,fontWeight:700,cursor:"pointer",letterSpacing:"0.05em",marginBottom:4,display:"block",width:"100%"}}>{status.toUpperCase()}</button>
                                 <div style={{display:"flex",justifyContent:"center",gap:2,flexWrap:"wrap"}}>
-                                  <button className="icon-btn" onClick={()=>setAudioNoteOpen(section)} style={{position:"relative",color:audioCount>0?SC:T.subtext}} title="Audio notes">
-                                    🎙️
-                                    {audioCount>0&&<span style={{position:"absolute",top:-2,right:-2,background:SC,color:darkMode?"#000":"#fff",fontSize:7,fontWeight:700,borderRadius:4,padding:"0 2px",minWidth:10,textAlign:"center"}}>{audioCount}</span>}
+                                  <button className="icon-btn" onClick={()=>setAudioNoteOpen(section)} style={{position:"relative",color:audioCount>0?SC:T.subtext}}>
+                                    🎙️{audioCount>0&&<span style={{position:"absolute",top:-2,right:-2,background:SC,color:darkMode?"#000":"#fff",fontSize:7,fontWeight:700,borderRadius:4,padding:"0 2px",minWidth:10,textAlign:"center"}}>{audioCount}</span>}
                                   </button>
                                   <button className="icon-btn" onClick={()=>toggleStarred(ri)} style={{color:isStarred?"#ffee00":T.subtext}}>⭐</button>
                                   <button className="icon-btn" onClick={()=>toggleLocked(ri)} style={{color:isLocked?"#ff9500":T.subtext}}>🔒</button>
@@ -966,7 +1240,7 @@ export default function App() {
                       <textarea style={inp({height:72,resize:"none",fontFamily:"monospace",borderColor:`${getSongColor(C)}33`,paddingBottom:24})}
                         placeholder="Session notes..." value={song.notes}
                         onChange={e=>updateSong(song.id,()=>({notes:e.target.value}))}/>
-                      <button onClick={()=>setNotesOpen(true)} style={{position:"absolute",bottom:18,right:18,background:`${getSongColor(C)}22`,border:`1px solid ${getSongColor(C)}66`,color:getSongColor(C),borderRadius:6,padding:"2px 8px",cursor:"pointer",fontSize:11,fontWeight:700}}>↗ EXPAND</button>
+                      <button onClick={()=>setNotesOpen(true)} style={{position:"absolute",bottom:18,right:18,background:`${getSongColor(C)}22`,border:`1px solid ${getSongColor(C)}66`,color:getSongColor(C),borderRadius:6,padding:"2px 8px",cursor:"pointer",fontSize:11,fontWeight:700}}>↗</button>
                     </div>
                     <div style={{borderRadius:14,padding:14,background:T.card,border:`1px solid ${getSongColor(C)}33`}}>
                       <h2 style={{color:getSongColor(C),fontSize:12,fontWeight:700,marginBottom:8,letterSpacing:"0.1em"}}>TEMPO & KEY</h2>
@@ -976,10 +1250,10 @@ export default function App() {
                     <div style={{borderRadius:14,padding:14,background:T.card,border:`1px solid ${getSongColor(C)}33`}}>
                       <h2 style={{color:getSongColor(C),fontSize:12,fontWeight:700,marginBottom:8,letterSpacing:"0.1em"}}>TIPS</h2>
                       <ul style={{fontSize:11,color:T.subtext,lineHeight:2,listStyle:"none",padding:0}}>
-                        <li><span style={{color:getSongColor(C)}}>▸</span> ☰ tap = section notes</li>
-                        <li><span style={{color:getSongColor(C)}}>▸</span> ☰ hold = drag to reorder</li>
-                        <li><span style={{color:getSongColor(C)}}>▸</span> 🎙️ record or upload audio</li>
-                        <li><span style={{color:getSongColor(C)}}>▸</span> 🎨 color dot = change theme</li>
+                        <li><span style={{color:getSongColor(C)}}>▸</span> ☰ tap = notes · hold = drag</li>
+                        <li><span style={{color:getSongColor(C)}}>▸</span> 🎙️ = section audio ideas</li>
+                        <li><span style={{color:getSongColor(C)}}>▸</span> ☰ menu → 🎛️ STUDIO</li>
+                        <li><span style={{color:getSongColor(C)}}>▸</span> 🎨 dot = change app color</li>
                       </ul>
                     </div>
                   </div>
@@ -1007,4 +1281,4 @@ export default function App() {
       )}
     </>
   );
-}
+                     }
