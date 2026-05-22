@@ -59,10 +59,10 @@ function makeProject(id,name,color) {
   };
 }
 
-const STORAGE_KEY   = "db_v13";
-const STORAGE_AP    = "db_ap_v13";
-const STORAGE_THEME = "db_theme_v13";
-const STORAGE_ACCENT= "db_accent_v13";
+const STORAGE_KEY   = "db_v14";
+const STORAGE_AP    = "db_ap_v14";
+const STORAGE_THEME = "db_theme_v14";
+const STORAGE_ACCENT= "db_accent_v14";
 
 function load(key,fallback) {
   try { const v=localStorage.getItem(key); return v?JSON.parse(v):fallback; }
@@ -75,23 +75,23 @@ function fmtTime(s) {
   return `${Math.floor(s/60)}:${Math.floor(s%60).toString().padStart(2,"0")}`;
 }
 
-async function createReverbNode(ac, amount) {
-  const convolver = ac.createConvolver();
-  const rate = ac.sampleRate;
-  const length = rate * (0.5 + amount * 3.5);
-  const impulse = ac.createBuffer(2, length, rate);
-  for (let c=0;c<2;c++) {
+async function createReverbNode(ac,amount) {
+  const convolver=ac.createConvolver();
+  const rate=ac.sampleRate;
+  const length=rate*(0.5+amount*3.5);
+  const impulse=ac.createBuffer(2,length,rate);
+  for(let c=0;c<2;c++){
     const ch=impulse.getChannelData(c);
-    for (let i=0;i<length;i++) ch[i]=(Math.random()*2-1)*Math.pow(1-i/length,1+amount*3);
+    for(let i=0;i<length;i++) ch[i]=(Math.random()*2-1)*Math.pow(1-i/length,1+amount*3);
   }
   convolver.buffer=impulse;
   return convolver;
 }
 
-function applyEQ(ac, source, track) {
-  const low  = ac.createBiquadFilter();
-  const mid  = ac.createBiquadFilter();
-  const high = ac.createBiquadFilter();
+function applyEQ(ac,source,track) {
+  const low=ac.createBiquadFilter();
+  const mid=ac.createBiquadFilter();
+  const high=ac.createBiquadFilter();
   low.type="lowshelf";   low.frequency.value=200;  low.gain.value=(track.lows||0)*12;
   mid.type="peaking";    mid.frequency.value=1000; mid.gain.value=(track.mids||0)*12; mid.Q.value=1;
   high.type="highshelf"; high.frequency.value=4000;high.gain.value=(track.highs||0)*12;
@@ -99,11 +99,10 @@ function applyEQ(ac, source, track) {
   return high;
 }
 
-// Step controls helper
-function StepControl({label, value, onChange, min=-1, max=1, step=0.1, TC, formatLabel}) {
-  const pct = Math.round(((value-min)/(max-min))*100);
-  const displayVal = value>0?`+${Math.round(value*10)}`:Math.round(value*10);
-  return (
+function StepControl({label,value,onChange,min=0,max=1,step=0.1,TC,formatLabel}) {
+  const pct=Math.round(((value-min)/(max-min))*100);
+  const displayVal=value>0?`+${Math.round(value*10)}`:Math.round(value*10);
+  return(
     <div style={{flex:1}}>
       <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
         <span style={{color:TC,fontSize:10,fontWeight:700,letterSpacing:"0.08em"}}>{label}</span>
@@ -170,6 +169,7 @@ export default function App() {
   const [playingTrackId,     setPlayingTrackId]     = useState(null);
   const [countingIn,         setCountingIn]         = useState(null);
   const [countBeat,          setCountBeat]          = useState(0);
+  const [confirmDelete,      setConfirmDelete]      = useState(null);
 
   const mediaRecorderRef   = useRef(null);
   const audioChunksRef     = useRef([]);
@@ -193,18 +193,18 @@ export default function App() {
   useEffect(()=>{ save(STORAGE_ACCENT,accentColor);   },[accentColor]);
 
   useEffect(()=>{
-    if (phase!=="loading") return;
+    if(phase!=="loading")return;
     const iv=setInterval(()=>{
       setProgress(p=>{
-        if (p>=100){ clearInterval(iv); setTimeout(()=>setPhase("fading"),300); return 100; }
+        if(p>=100){clearInterval(iv);setTimeout(()=>setPhase("fading"),300);return 100;}
         return p+1.2;
       });
     },30);
-    return ()=>clearInterval(iv);
+    return()=>clearInterval(iv);
   },[phase]);
 
   useEffect(()=>{
-    if (phase==="fading"){ const t=setTimeout(()=>setPhase("app"),1200); return ()=>clearTimeout(t); }
+    if(phase==="fading"){const t=setTimeout(()=>setPhase("app"),1200);return()=>clearTimeout(t);}
   },[phase]);
 
   const project      = projects.find(p=>p.id===activeProject)||projects[0];
@@ -218,27 +218,27 @@ export default function App() {
   const tracks       = project?.studio?.tracks||makeDefaultTracks();
   const AC           = accentColor;
 
-  const getCurrentBPM=()=>{ const p=parseInt(song?.bpm); return isNaN(p)||p<=0?100:p; };
+  const getCurrentBPM=()=>{const p=parseInt(song?.bpm);return isNaN(p)||p<=0?100:p;};
   const getSongColor=(hex)=>hex==="#39ff14"?AC:hex;
 
-  const T = darkMode ? {
-    bg:"#000", card:"linear-gradient(145deg,#0a0f0a,#111811)",
-    cardBg:"#080d08", text:"#ccc", subtext:"#555",
-    inputBg:"#050a05", inputBorder:"rgba(255,255,255,0.1)",
-    rowHover:"rgba(255,255,255,0.02)", stickyBg:"#080d08",
-    headBg:"#111811", border:"rgba(255,255,255,0.08)", checkBg:"#000",
-  } : {
-    bg:"#f2f4f8", card:"linear-gradient(145deg,#ffffff,#f5f7fc)",
-    cardBg:"#ffffff", text:"#0a1628", subtext:"#4a5568",
-    inputBg:"#ffffff", inputBorder:"rgba(10,22,40,0.2)",
-    rowHover:"rgba(10,22,40,0.03)", stickyBg:"#ffffff",
-    headBg:"#eef1f8", border:"rgba(10,22,40,0.1)", checkBg:"#fff",
+  const T=darkMode?{
+    bg:"#000",card:"linear-gradient(145deg,#0a0f0a,#111811)",
+    cardBg:"#080d08",text:"#ccc",subtext:"#555",
+    inputBg:"#050a05",inputBorder:"rgba(255,255,255,0.1)",
+    rowHover:"rgba(255,255,255,0.02)",stickyBg:"#080d08",
+    headBg:"#111811",border:"rgba(255,255,255,0.08)",checkBg:"#000",
+  }:{
+    bg:"#f2f4f8",card:"linear-gradient(145deg,#ffffff,#f5f7fc)",
+    cardBg:"#ffffff",text:"#0a1628",subtext:"#4a5568",
+    inputBg:"#ffffff",inputBorder:"rgba(10,22,40,0.2)",
+    rowHover:"rgba(10,22,40,0.03)",stickyBg:"#ffffff",
+    headBg:"#eef1f8",border:"rgba(10,22,40,0.1)",checkBg:"#fff",
   };
 
   const inp=(extra={})=>({
-    background:T.inputBg, border:`1px solid ${T.inputBorder}`,
-    color:T.text, borderRadius:8, padding:"8px 12px",
-    width:"100%", outline:"none", fontSize:13, ...extra,
+    background:T.inputBg,border:`1px solid ${T.inputBorder}`,
+    color:T.text,borderRadius:8,padding:"8px 12px",
+    width:"100%",outline:"none",fontSize:13,...extra,
   });
 
   const updateProject=(id,fn)=>setProjects(prev=>prev.map(p=>p.id===id?{...p,...fn(p)}:p));
@@ -247,10 +247,37 @@ export default function App() {
     studio:{...p.studio,tracks:(p.studio?.tracks||makeDefaultTracks()).map(t=>t.id===trackId?{...t,...fn(t)}:t)}
   }));
 
+  // Delete a track entirely and optionally add a new blank one
+  const deleteTrack=(trackId)=>{
+    stopTrack(trackId);
+    updateProject(project.id,p=>{
+      const remaining=(p.studio?.tracks||makeDefaultTracks()).filter(t=>t.id!==trackId);
+      return{studio:{...p.studio,tracks:remaining}};
+    });
+    setConfirmDelete(null);
+    if(expandedTrack===trackId)setExpandedTrack(null);
+  };
+
+  // Add a new blank track
+  const addTrack=()=>{
+    const newId=Date.now();
+    const colorIndex=tracks.length%PROJECT_COLORS.length;
+    const newTrack={
+      id:newId,
+      name:`Track ${tracks.length+1}`,
+      color:PROJECT_COLORS[colorIndex],
+      recordings:[],volume:0.8,muted:false,solo:false,
+      reverb:0,lows:0,mids:0,highs:0,notes:"",
+    };
+    updateProject(project.id,p=>({
+      studio:{...p.studio,tracks:[...(p.studio?.tracks||makeDefaultTracks()),newTrack]}
+    }));
+  };
+
   const ckKey=(sn,ci)=>`${sn}--${ci}`;
   const toggleChecked=(sn,ci,songId)=>{
     const ri=song.sections.indexOf(sn);
-    if (song.locked?.[ri]) return;
+    if(song.locked?.[ri])return;
     const k=ckKey(sn,ci);
     updateProject(project.id,p=>{
       const cur=Array.isArray(p.checks?.[k])?p.checks[k]:[];
@@ -259,7 +286,7 @@ export default function App() {
   };
   const getColors=(sn,ci)=>{
     const k=ckKey(sn,ci);
-    return (Array.isArray(project.checks?.[k])?project.checks[k]:[])
+    return(Array.isArray(project.checks?.[k])?project.checks[k]:[])
       .map(id=>project.songs.find(s=>s.id===id)?.color).filter(Boolean);
   };
   const isMine=(sn,ci,songId)=>{
@@ -268,7 +295,7 @@ export default function App() {
   };
 
   const addInstrument=()=>{
-    if (!newInstrument.trim()||instruments.includes(newInstrument.trim())) return;
+    if(!newInstrument.trim()||instruments.includes(newInstrument.trim()))return;
     updateProject(project.id,p=>({instruments:[...(p.instruments||DEFAULT_INSTRUMENTS),newInstrument.trim()]}));
     setNewInstrument("");
   };
@@ -277,7 +304,7 @@ export default function App() {
   const toggleLocked =ri=>updateSong(song.id,s=>({locked:{...s.locked,[ri]:!s.locked?.[ri]}}));
   const toggleStarred=ri=>updateSong(song.id,s=>({starred:{...s.starred,[ri]:!s.starred?.[ri]}}));
   const cycleStatus  =ri=>{
-    if (song.locked?.[ri]) return;
+    if(song.locked?.[ri])return;
     updateSong(song.id,s=>{
       const cur=s.status?.[ri]||"Draft";
       return{status:{...s.status,[ri]:STATUS_OPTIONS[(STATUS_OPTIONS.indexOf(cur)+1)%STATUS_OPTIONS.length]}};
@@ -291,44 +318,44 @@ export default function App() {
   };
   const handleLinesTouchEnd=(ri,section)=>{
     clearTimeout(longPressTimer);
-    if (!isDragging) setSectionNoteOpen(section);
+    if(!isDragging)setSectionNoteOpen(section);
     setIsDragging(false);
   };
   const handleDrop=ti=>{
-    if (draggedIndex===null||song.locked?.[draggedIndex]) return;
-    const upd=[...song.sections];const [it]=upd.splice(draggedIndex,1);upd.splice(ti,0,it);
+    if(draggedIndex===null||song.locked?.[draggedIndex])return;
+    const upd=[...song.sections];const[it]=upd.splice(draggedIndex,1);upd.splice(ti,0,it);
     updateSong(song.id,()=>({sections:upd}));setDraggedIndex(null);
   };
-  const addSection=()=>{ if(!newSection.trim())return; updateSong(song.id,s=>({sections:[...s.sections,newSection.trim()]}));setNewSection(""); };
-  const removeSection=i=>{ if(song.locked?.[i])return; updateSong(song.id,s=>({sections:s.sections.filter((_,idx)=>idx!==i)})); };
-  const startEdit=i=>{ if(song.locked?.[i])return; setEditingIndex(i);setEditingValue(song.sections[i]); };
+  const addSection=()=>{if(!newSection.trim())return;updateSong(song.id,s=>({sections:[...s.sections,newSection.trim()]}));setNewSection("");};
+  const removeSection=i=>{if(song.locked?.[i])return;updateSong(song.id,s=>({sections:s.sections.filter((_,idx)=>idx!==i)}));};
+  const startEdit=i=>{if(song.locked?.[i])return;setEditingIndex(i);setEditingValue(song.sections[i]);};
   const saveEdit=()=>{
-    if (!editingValue.trim()) return;
+    if(!editingValue.trim())return;
     updateSong(song.id,s=>{const u=[...s.sections];u[editingIndex]=editingValue.trim();return{sections:u};});
     setEditingIndex(null);
   };
 
   const addProject=()=>{
-    if (!newProjectName.trim()) return;
+    if(!newProjectName.trim())return;
     const id=Date.now();
     setProjects(prev=>[...prev,makeProject(id,newProjectName.trim(),AC)]);
     setActiveProject(id);setNewProjectName("");setMenuOpen(false);setActiveTab(0);
   };
   const deleteProject=id=>{
-    if (projects.length===1) return;
+    if(projects.length===1)return;
     setProjects(prev=>prev.filter(p=>p.id!==id));
-    if (activeProject===id) setActiveProject(projects[0].id);
+    if(activeProject===id)setActiveProject(projects[0].id);
   };
   const switchProject=id=>{setActiveProject(id);setMenuOpen(false);setActiveTab(0);setScreen("studio");};
-  const saveProjectName=()=>{ if(!projectNameValue.trim())return; updateProject(project.id,()=>({name:projectNameValue.trim()}));setEditingProjectName(false); };
-  const saveProjectSongName=()=>{ if(!projectSongValue.trim())return; updateProject(project.id,()=>({songName:projectSongValue.trim()}));setEditingProjectSong(false); };
-  const saveSongName=()=>{ if(!songNameValue.trim())return; updateSong(song.id,()=>({name:songNameValue.trim()}));setEditingSongName(false); };
+  const saveProjectName=()=>{if(!projectNameValue.trim())return;updateProject(project.id,()=>({name:projectNameValue.trim()}));setEditingProjectName(false);};
+  const saveProjectSongName=()=>{if(!projectSongValue.trim())return;updateProject(project.id,()=>({songName:projectSongValue.trim()}));setEditingProjectSong(false);};
+  const saveSongName=()=>{if(!songNameValue.trim())return;updateSong(song.id,()=>({name:songNameValue.trim()}));setEditingSongName(false);};
 
   const shareApp=()=>{
     const url=window.location.origin;
     const text="🎸 Dog Bones — Song Section Organizer. Open in Chrome then Add to Home Screen!";
-    if (navigator.share){ navigator.share({title:"Dog Bones",text,url}); }
-    else { navigator.clipboard.writeText(`${text}\n${url}`).then(()=>{setShareCopied(true);setTimeout(()=>setShareCopied(false),2500);}); }
+    if(navigator.share){navigator.share({title:"Dog Bones",text,url});}
+    else{navigator.clipboard.writeText(`${text}\n${url}`).then(()=>{setShareCopied(true);setTimeout(()=>setShareCopied(false),2500);});}
   };
 
   const getSectionNote=sn=>song?.sectionNotes?.[sn]||"";
@@ -344,24 +371,21 @@ export default function App() {
       mr.onstop=()=>{
         const blob=new Blob(audioChunksRef.current,{type:"audio/webm"});
         const url=URL.createObjectURL(blob);
-        const id=Date.now().toString();
-        const dur=recordingTime;
+        const id=Date.now().toString();const dur=recordingTime;
         setAudioURLs(prev=>({...prev,[id]:url}));
-        const a=document.createElement("a");
-        a.href=url;a.download=`DogBones_${sn}_${id}.webm`;a.click();
+        const a=document.createElement("a");a.href=url;a.download=`DogBones_${sn}_${id}.webm`;a.click();
         updateSong(song.id,s=>({audioNotes:{...s.audioNotes,[sn]:[...(s.audioNotes?.[sn]||[]),{id,duration:dur,label:`Voice memo ${(s.audioNotes?.[sn]||[]).length+1}`}]}}));
         stream.getTracks().forEach(t=>t.stop());
       };
-      mr.start();
-      mediaRecorderRef.current=mr;
+      mr.start();mediaRecorderRef.current=mr;
       setRecording(true);setRecordingTime(0);
       recordingTimerRef.current=setInterval(()=>setRecordingTime(t=>t+1),1000);
-    }catch(e){ alert("Microphone access denied."); }
+    }catch(e){alert("Microphone access denied.");}
   };
-  const stopRecording=()=>{ mediaRecorderRef.current?.stop(); clearInterval(recordingTimerRef.current); setRecording(false); };
+  const stopRecording=()=>{mediaRecorderRef.current?.stop();clearInterval(recordingTimerRef.current);setRecording(false);};
   const handleFileUpload=(sn,e)=>{
-    const file=e.target.files?.[0]; if(!file)return;
-    const url=URL.createObjectURL(file); const id=Date.now().toString();
+    const file=e.target.files?.[0];if(!file)return;
+    const url=URL.createObjectURL(file);const id=Date.now().toString();
     setAudioURLs(prev=>({...prev,[id]:url}));
     updateSong(song.id,s=>({audioNotes:{...s.audioNotes,[sn]:[...(s.audioNotes?.[sn]||[]),{id,duration:0,label:file.name.replace(/\.[^/.]+$/,"")}]}}));
     e.target.value="";
@@ -376,53 +400,50 @@ export default function App() {
     if(audioRef.current){audioRef.current.pause();audioRef.current=null;}
     if(playingId===id){setPlayingId(null);return;}
     if(!url){alert("Re-record or re-upload after refresh.");return;}
-    const a=new Audio(url); a.play(); a.onended=()=>setPlayingId(null);
-    audioRef.current=a; setPlayingId(id);
+    const a=new Audio(url);a.play();a.onended=()=>setPlayingId(null);
+    audioRef.current=a;setPlayingId(id);
   };
 
   const playClick=(ac,time,isAccent)=>{
-    const osc=ac.createOscillator(); const gain=ac.createGain();
+    const osc=ac.createOscillator();const gain=ac.createGain();
     osc.connect(gain);gain.connect(ac.destination);
     osc.frequency.value=isAccent?1200:800;
-    gain.gain.setValueAtTime(0.8,time);
-    gain.gain.exponentialRampToValueAtTime(0.001,time+0.05);
+    gain.gain.setValueAtTime(0.8,time);gain.gain.exponentialRampToValueAtTime(0.001,time+0.05);
     osc.start(time);osc.stop(time+0.06);
   };
 
   const startCountIn=trackId=>{
     if(countingIn!==null)return;
-    const bpm=getCurrentBPM(); const beatInterval=60/bpm;
-    const ac=new (window.AudioContext||window.webkitAudioContext)();
+    const bpm=getCurrentBPM();const beatInterval=60/bpm;
+    const ac=new(window.AudioContext||window.webkitAudioContext)();
     audioCtxRef.current=ac;
-    let beat=0; setCountingIn(trackId);setCountBeat(0);
-    for(let i=0;i<8;i++) playClick(ac,ac.currentTime+(i*beatInterval),i===0||i===4);
+    let beat=0;setCountingIn(trackId);setCountBeat(0);
+    for(let i=0;i<8;i++)playClick(ac,ac.currentTime+(i*beatInterval),i===0||i===4);
     countIntervalRef.current=setInterval(()=>{
-      beat++; setCountBeat(beat);
+      beat++;setCountBeat(beat);
       if(beat>=8){
         clearInterval(countIntervalRef.current);
         setCountingIn(null);setCountBeat(0);
-        setTimeout(()=>{ startPlaybackDuringRecording(trackId); startStudioRecording(trackId); },50);
+        setTimeout(()=>{startPlaybackDuringRecording(trackId);startStudioRecording(trackId);},50);
       }
     },beatInterval*1000);
   };
-  const cancelCountIn=()=>{ clearInterval(countIntervalRef.current); audioCtxRef.current?.close(); setCountingIn(null);setCountBeat(0); };
+  const cancelCountIn=()=>{clearInterval(countIntervalRef.current);audioCtxRef.current?.close();setCountingIn(null);setCountBeat(0);};
 
   const buildAudioGraph=async(ac,track,url)=>{
     const response=await fetch(url);
     const arrayBuffer=await response.arrayBuffer();
     const audioBuffer=await ac.decodeAudioData(arrayBuffer);
-    const source=ac.createBufferSource();
-    source.buffer=audioBuffer;
+    const source=ac.createBufferSource();source.buffer=audioBuffer;
     const eqOut=applyEQ(ac,source,track);
-    const gainNode=ac.createGain();
-    gainNode.gain.value=track.volume;
+    const gainNode=ac.createGain();gainNode.gain.value=track.volume;
     if(track.reverb>0){
       const convolver=await createReverbNode(ac,track.reverb);
-      const dryGain=ac.createGain(); const wetGain=ac.createGain();
-      dryGain.gain.value=1-track.reverb*0.6; wetGain.gain.value=track.reverb*0.8;
-      eqOut.connect(dryGain); eqOut.connect(convolver); convolver.connect(wetGain);
-      dryGain.connect(gainNode); wetGain.connect(gainNode);
-    } else { eqOut.connect(gainNode); }
+      const dryGain=ac.createGain();const wetGain=ac.createGain();
+      dryGain.gain.value=1-track.reverb*0.6;wetGain.gain.value=track.reverb*0.8;
+      eqOut.connect(dryGain);eqOut.connect(convolver);convolver.connect(wetGain);
+      dryGain.connect(gainNode);wetGain.connect(gainNode);
+    }else{eqOut.connect(gainNode);}
     gainNode.connect(ac.destination);
     return{source,ac};
   };
@@ -430,19 +451,17 @@ export default function App() {
   const startPlaybackDuringRecording=async recordingTrackId=>{
     playbackAudioNodes.current.forEach(a=>{try{a.pause?.();a.stop?.();}catch{}});
     playbackAudioNodes.current=[];
-    const ac=new (window.AudioContext||window.webkitAudioContext)();
+    const ac=new(window.AudioContext||window.webkitAudioContext)();
     const hasSolo=tracks.some(t=>t.solo&&t.id!==recordingTrackId);
     for(const track of tracks){
       if(track.id===recordingTrackId||track.muted||(hasSolo&&!track.solo))continue;
-      const latestRec=track.recordings[track.recordings.length-1];
-      if(!latestRec)continue;
-      const url=studioAudioURLs[latestRec.id]; if(!url)continue;
+      const latestRec=track.recordings[track.recordings.length-1];if(!latestRec)continue;
+      const url=studioAudioURLs[latestRec.id];if(!url)continue;
       try{
-        const {source}=await buildAudioGraph(ac,track,url);
-        source.start(0);
-        playbackAudioNodes.current.push({stop:()=>source.stop()});
+        const{source}=await buildAudioGraph(ac,track,url);
+        source.start(0);playbackAudioNodes.current.push({stop:()=>source.stop()});
       }catch(e){
-        const a=new Audio(url); a.volume=track.volume; a.play().catch(()=>{});
+        const a=new Audio(url);a.volume=track.volume;a.play().catch(()=>{});
         playbackAudioNodes.current.push(a);
       }
     }
@@ -462,20 +481,19 @@ export default function App() {
         stopPlaybackDuringRecording();
         const blob=new Blob(studioChunksRef.current,{type:"audio/webm"});
         const url=URL.createObjectURL(blob);
-        const id=Date.now().toString(); const dur=studioRecordingTime;
+        const id=Date.now().toString();const dur=studioRecordingTime;
         const track=tracks.find(t=>t.id===trackId);
         setStudioAudioURLs(prev=>({...prev,[id]:url}));
-        const a=document.createElement("a");
-        a.href=url;a.download=`DogBones_${track?.name||"track"}_${id}.webm`;a.click();
+        const a=document.createElement("a");a.href=url;a.download=`DogBones_${track?.name||"track"}_${id}.webm`;a.click();
         updateTrack(trackId,t=>({recordings:[...t.recordings,{id,duration:dur,label:`Take ${t.recordings.length+1}`}]}));
         stream.getTracks().forEach(t=>t.stop());
       };
-      mr.start(); studioMediaRef.current=mr;
+      mr.start();studioMediaRef.current=mr;
       setStudioRecordingTrack(trackId);setStudioRecordingTime(0);
       studioTimerRef.current=setInterval(()=>setStudioRecordingTime(t=>t+1),1000);
-    }catch(e){ alert("Microphone access denied."); }
+    }catch(e){alert("Microphone access denied.");}
   };
-  const stopStudioRecording=()=>{ studioMediaRef.current?.stop(); clearInterval(studioTimerRef.current); setStudioRecordingTrack(null); };
+  const stopStudioRecording=()=>{studioMediaRef.current?.stop();clearInterval(studioTimerRef.current);setStudioRecordingTrack(null);};
 
   const playTrackWithFX=async trackId=>{
     const track=tracks.find(t=>t.id===trackId);
@@ -484,39 +502,35 @@ export default function App() {
     const url=studioAudioURLs[latestRec.id];
     if(!url){alert("Re-upload file to play.");return;}
     if(playingTrackId===trackId){
-      trackAudioRefs.current[trackId]?.stop?.();
-      trackAudioRefs.current[trackId]?.pause?.();
-      delete trackAudioRefs.current[trackId];
-      setPlayingTrackId(null); return;
+      trackAudioRefs.current[trackId]?.stop?.();trackAudioRefs.current[trackId]?.pause?.();
+      delete trackAudioRefs.current[trackId];setPlayingTrackId(null);return;
     }
     if(playingTrackId!==null){
-      trackAudioRefs.current[playingTrackId]?.stop?.();
-      trackAudioRefs.current[playingTrackId]?.pause?.();
+      trackAudioRefs.current[playingTrackId]?.stop?.();trackAudioRefs.current[playingTrackId]?.pause?.();
       delete trackAudioRefs.current[playingTrackId];
     }
     try{
-      const{source,ac}=await buildAudioGraph(new (window.AudioContext||window.webkitAudioContext)(),track,url);
+      const{source,ac}=await buildAudioGraph(new(window.AudioContext||window.webkitAudioContext)(),track,url);
       source.start(0);
       source.onended=()=>{setPlayingTrackId(null);delete trackAudioRefs.current[trackId];};
       trackAudioRefs.current[trackId]={stop:()=>{source.stop();ac.close();}};
       setPlayingTrackId(trackId);
     }catch(e){
-      const a=new Audio(url); a.volume=track.volume; a.play();
+      const a=new Audio(url);a.volume=track.volume;a.play();
       a.onended=()=>{setPlayingTrackId(null);delete trackAudioRefs.current[trackId];};
       trackAudioRefs.current[trackId]={pause:()=>{a.pause();a.currentTime=0;}};
       setPlayingTrackId(trackId);
     }
   };
   const stopTrack=trackId=>{
-    trackAudioRefs.current[trackId]?.stop?.();
-    trackAudioRefs.current[trackId]?.pause?.();
+    trackAudioRefs.current[trackId]?.stop?.();trackAudioRefs.current[trackId]?.pause?.();
     delete trackAudioRefs.current[trackId];
     if(playingTrackId===trackId)setPlayingTrackId(null);
   };
 
   const handleStudioFileUpload=(trackId,e)=>{
-    const file=e.target.files?.[0]; if(!file)return;
-    const url=URL.createObjectURL(file); const id=Date.now().toString();
+    const file=e.target.files?.[0];if(!file)return;
+    const url=URL.createObjectURL(file);const id=Date.now().toString();
     setStudioAudioURLs(prev=>({...prev,[id]:url}));
     updateTrack(trackId,t=>({recordings:[...t.recordings,{id,duration:0,label:file.name.replace(/\.[^/.]+$/,"")}]}));
     e.target.value="";
@@ -531,20 +545,20 @@ export default function App() {
     studioAudioNodes.current.forEach(a=>{try{a.stop?.();a.pause?.();}catch{}});
     studioAudioNodes.current=[];
     const hasSolo=tracks.some(t=>t.solo);
-    const ac=new (window.AudioContext||window.webkitAudioContext)();
+    const ac=new(window.AudioContext||window.webkitAudioContext)();
     for(const track of tracks){
       if(track.muted||(hasSolo&&!track.solo))continue;
-      const latestRec=track.recordings[track.recordings.length-1]; if(!latestRec)continue;
-      const url=studioAudioURLs[latestRec.id]; if(!url)continue;
+      const latestRec=track.recordings[track.recordings.length-1];if(!latestRec)continue;
+      const url=studioAudioURLs[latestRec.id];if(!url)continue;
       try{
         const{source}=await buildAudioGraph(ac,track,url);
-        source.start(0); studioAudioNodes.current.push({stop:()=>source.stop()});
+        source.start(0);studioAudioNodes.current.push({stop:()=>source.stop()});
       }catch(e){
-        const a=new Audio(url); a.volume=track.volume; a.play().catch(()=>{});
+        const a=new Audio(url);a.volume=track.volume;a.play().catch(()=>{});
         studioAudioNodes.current.push(a);
       }
     }
-    setStudioPlaying(true); setTimeout(()=>setStudioPlaying(false),60000);
+    setStudioPlaying(true);setTimeout(()=>setStudioPlaying(false),60000);
   };
   const stopAllTracks=()=>{
     studioAudioNodes.current.forEach(a=>{try{a.stop?.();a.pause?.();}catch{}});
@@ -552,7 +566,7 @@ export default function App() {
     Object.values(trackAudioRefs.current).forEach(a=>{try{a.stop?.();a.pause?.();}catch{}});
     trackAudioRefs.current={};
     stopPlaybackDuringRecording();
-    setStudioPlaying(false); setPlayingTrackId(null);
+    setStudioPlaying(false);setPlayingTrackId(null);
   };
 
   const addToSetlist=n=>updateProject(project.id,p=>({setlist:[...(p.setlist||[]),{id:Date.now(),name:n}]}));
@@ -565,14 +579,13 @@ export default function App() {
   };
 
   const allSections=[...new Set(project.songs.flatMap(s=>s.sections))];
-
   const modalHeader=(color)=>({display:"flex",alignItems:"center",gap:10,padding:"14px 16px",borderBottom:`1px solid ${color}44`,background:darkMode?"#0a0f0a":"#f0f4ff"});
   const doneBtn=(color)=>({background:`${color}22`,border:`1px solid ${color}66`,color,borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:12,fontWeight:700});
-
   const reverbLabel=v=>v===0?"DRY":v<0.3?"ROOM":v<0.6?"HALL":v<0.8?"CHAMBER":"CATHEDRAL";
   const eqLabel=v=>v>0.3?"BOOST":v<-0.3?"CUT":"FLAT";
+  const volLabel=v=>v===0?"SILENT":v<0.3?"LOW":v<0.6?"MEDIUM":v<0.9?"LOUD":"MAX";
 
-  return (
+  return(
     <>
       <style>{`
         @keyframes pulse-glow{0%,100%{text-shadow:0 0 8px ${AC},0 0 20px ${AC};}50%{text-shadow:0 0 20px ${AC},0 0 40px ${AC};}}
@@ -588,6 +601,8 @@ export default function App() {
         @keyframes vuPulse{0%{height:20%}50%{height:80%}100%{height:20%}}
         @keyframes dropIn{0%{opacity:0;transform:translateY(-8px)}100%{opacity:1;transform:translateY(0)}}
         .drop-in{animation:dropIn 0.2s ease forwards;}
+        @keyframes confirmPop{0%{opacity:0;transform:scale(0.9)}100%{opacity:1;transform:scale(1)}}
+        .confirm-pop{animation:confirmPop 0.15s ease forwards;}
         *{box-sizing:border-box;}
         body{background:${T.bg};margin:0;transition:background 0.3s;}
         .icon-btn{background:none;border:none;cursor:pointer;padding:4px 5px;border-radius:6px;font-size:13px;line-height:1;transition:background 0.15s;}
@@ -603,6 +618,35 @@ export default function App() {
         .lines-btn{display:flex;flex-direction:column;gap:3px;padding:6px 8px;border-radius:8px;cursor:pointer;border:none;background:none;flex-shrink:0;}
         .lines-btn .line{width:14px;height:2px;border-radius:1px;}
       `}</style>
+
+      {/* DELETE CONFIRM MODAL */}
+      {confirmDelete&&(
+        <div style={{position:"fixed",inset:0,zIndex:9000,background:"rgba(0,0,0,0.8)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div className="confirm-pop" style={{background:darkMode?"#111":"#fff",borderRadius:20,padding:24,maxWidth:300,width:"100%",border:`2px solid #ff4444`,boxShadow:"0 0 40px #ff444466"}}>
+            <div style={{textAlign:"center",marginBottom:20}}>
+              <div style={{fontSize:40,marginBottom:12}}>🗑️</div>
+              <h3 style={{color:"#ff4444",fontSize:16,fontWeight:700,margin:"0 0 8px",letterSpacing:"0.05em"}}>DELETE TRACK?</h3>
+              <p style={{color:T.subtext,fontSize:13,margin:0,lineHeight:1.5}}>
+                This will permanently delete <strong style={{color:T.text}}>{confirmDelete.name}</strong> and all its recordings.
+              </p>
+              <p style={{color:"#ff4444",fontSize:11,margin:"8px 0 0"}}>This cannot be undone.</p>
+            </div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>setConfirmDelete(null)} style={{
+                flex:1,padding:"12px",borderRadius:12,
+                background:"transparent",border:`1px solid ${T.border}`,
+                color:T.subtext,cursor:"pointer",fontSize:13,fontWeight:700,
+              }}>CANCEL</button>
+              <button onClick={()=>deleteTrack(confirmDelete.id)} style={{
+                flex:1,padding:"12px",borderRadius:12,
+                background:"#ff444422",border:"2px solid #ff4444",
+                color:"#ff4444",cursor:"pointer",fontSize:13,fontWeight:700,
+                boxShadow:"0 0 12px #ff444444",
+              }}>DELETE</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* SECTION NOTE MODAL */}
       {sectionNoteOpen&&song&&(
@@ -718,8 +762,7 @@ export default function App() {
                   background:screen===val?`${AC}22`:"transparent",
                   border:`1px solid ${screen===val?AC+"66":"rgba(128,128,128,0.2)"}`,
                   color:screen===val?AC:T.subtext,
-                  borderRadius:8,padding:"8px 12px",cursor:"pointer",
-                  fontSize:12,fontWeight:700,letterSpacing:"0.1em",textAlign:"left",
+                  borderRadius:8,padding:"8px 12px",cursor:"pointer",fontSize:12,fontWeight:700,letterSpacing:"0.1em",textAlign:"left",
                 }}>{label}</button>
               ))}
               <button onClick={()=>setDarkMode(!darkMode)} style={{
@@ -814,7 +857,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* ── STUDIO (default) ── */}
+          {/* ── STUDIO ── */}
           {isStudio&&(
             <div>
               <div style={{padding:"14px 16px",borderRadius:14,marginBottom:12,background:T.card,border:`1px solid ${AC}44`}}>
@@ -823,17 +866,19 @@ export default function App() {
                     <h2 style={{color:AC,fontSize:18,fontWeight:700,margin:0}}>🎛️ STUDIO</h2>
                     <p style={{color:T.subtext,fontSize:10,margin:"2px 0 0"}}>{project?.name?.toUpperCase()} — {song?.bpm?`${song.bpm} BPM`:"SET BPM IN SONG ARRANGER"}</p>
                   </div>
-                  <button onClick={studioPlaying?stopAllTracks:playAllTracks} style={{
-                    background:studioPlaying?"#ff444422":`${AC}22`,
-                    border:`2px solid ${studioPlaying?"#ff4444":AC}`,
-                    color:studioPlaying?"#ff4444":AC,
-                    borderRadius:10,padding:"8px 14px",cursor:"pointer",fontSize:12,fontWeight:700,
-                  }}>{studioPlaying?"⏹ STOP ALL":"▶ PLAY ALL"}</button>
+                  <div style={{display:"flex",gap:8}}>
+                    <button onClick={studioPlaying?stopAllTracks:playAllTracks} style={{
+                      background:studioPlaying?"#ff444422":`${AC}22`,
+                      border:`2px solid ${studioPlaying?"#ff4444":AC}`,
+                      color:studioPlaying?"#ff4444":AC,
+                      borderRadius:10,padding:"8px 14px",cursor:"pointer",fontSize:12,fontWeight:700,
+                    }}>{studioPlaying?"⏹ STOP ALL":"▶ PLAY ALL"}</button>
+                  </div>
                 </div>
                 <div style={{padding:"8px 12px",borderRadius:10,background:`${AC}08`,border:`1px solid ${AC}22`}}>
                   <p style={{color:T.subtext,fontSize:10,margin:0,lineHeight:1.6}}>
                     <span style={{color:AC,fontWeight:700}}>BAND WORKFLOW: </span>
-                    Record → Downloads → text .webm to bandmate → they upload to their track → record while hearing yours
+                    Record → Downloads → text .webm to bandmate → they upload → record while hearing yours
                   </p>
                 </div>
               </div>
@@ -852,7 +897,7 @@ export default function App() {
                     <div key={track.id} style={{
                       borderRadius:14,overflow:"hidden",
                       border:`1px solid ${TC}${track.muted?"22":"55"}`,
-                      background:T.card, opacity:track.muted?0.7:1,
+                      background:T.card,opacity:track.muted?0.7:1,
                       transition:"all 0.2s",
                       boxShadow:isRecordingThis?`0 0 20px ${TC}66`:isCountingInThis?`0 0 20px #ffee0066`:"none",
                     }}>
@@ -860,26 +905,16 @@ export default function App() {
                       {/* Track Header */}
                       <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 12px",background:`${TC}11`}}>
 
-                        {/* Color dot — tap to change track color */}
+                        {/* Color dot */}
                         <div style={{position:"relative"}}>
                           <button onClick={()=>setTrackColorPicker(trackColorPicker===track.id?null:track.id)} style={{
                             width:16,height:16,borderRadius:"50%",background:TC,
-                            border:"none",cursor:"pointer",flexShrink:0,
-                            boxShadow:`0 0 6px ${TC}`,
+                            border:"none",cursor:"pointer",flexShrink:0,boxShadow:`0 0 6px ${TC}`,
                           }}/>
                           {trackColorPicker===track.id&&(
-                            <div style={{
-                              position:"absolute",top:22,left:0,zIndex:300,
-                              background:darkMode?"#111":"#fff",borderRadius:12,padding:10,
-                              border:`1px solid ${TC}44`,boxShadow:"0 6px 24px rgba(0,0,0,0.4)",
-                              display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,width:130,
-                            }}>
+                            <div style={{position:"absolute",top:22,left:0,zIndex:300,background:darkMode?"#111":"#fff",borderRadius:12,padding:10,border:`1px solid ${TC}44`,boxShadow:"0 6px 24px rgba(0,0,0,0.4)",display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,width:130}}>
                               {PROJECT_COLORS.map(c=>(
-                                <button key={c} onClick={()=>{updateTrack(track.id,()=>({color:c}));setTrackColorPicker(null);}} style={{
-                                  width:22,height:22,borderRadius:"50%",background:c,
-                                  border:c===TC?"2px solid #fff":"none",cursor:"pointer",
-                                  boxShadow:`0 0 5px ${c}`,
-                                }}/>
+                                <button key={c} onClick={()=>{updateTrack(track.id,()=>({color:c}));setTrackColorPicker(null);}} style={{width:22,height:22,borderRadius:"50%",background:c,border:c===TC?"2px solid #fff":"none",cursor:"pointer",boxShadow:`0 0 5px ${c}`}}/>
                               ))}
                             </div>
                           )}
@@ -917,9 +952,22 @@ export default function App() {
                           </div>
                         )}
 
-                        {/* Status badges */}
                         {track.muted&&<span style={{color:"#ff4444",fontSize:9,fontWeight:700,background:"#ff444422",border:"1px solid #ff444466",borderRadius:4,padding:"1px 5px"}}>MUTE</span>}
                         {track.solo&&<span style={{color:TC,fontSize:9,fontWeight:700,background:`${TC}22`,border:`1px solid ${TC}66`,borderRadius:4,padding:"1px 5px"}}>SOLO</span>}
+
+                        {/* DELETE button — always visible in header */}
+                        <button
+                          onClick={()=>setConfirmDelete({id:track.id,name:track.name})}
+                          style={{
+                            width:28,height:28,borderRadius:8,flexShrink:0,
+                            background:"#ff444411",
+                            border:"1px solid #ff444444",
+                            color:"#ff4444",cursor:"pointer",
+                            fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",
+                            transition:"all 0.15s",
+                          }}
+                          title="Delete track"
+                        >🗑️</button>
 
                         {/* Expand */}
                         <button onClick={()=>setExpandedTrack(isExpanded?null:track.id)} style={{
@@ -971,67 +1019,23 @@ export default function App() {
                           style={{padding:"9px 10px",borderRadius:10,background:`${TC}11`,border:`1px solid ${TC}44`,color:TC,cursor:"pointer",fontSize:13}}>📁</button>
                       </div>
 
-                      {/* ── DROPDOWN PANEL ── */}
+                      {/* Dropdown Panel */}
                       {isExpanded&&(
                         <div className="drop-in" style={{padding:"16px 12px",display:"flex",flexDirection:"column",gap:18}}>
-
-                          {/* VOLUME — same style as reverb */}
-                          <div>
-                            <StepControl
-                              label="🔊 VOLUME"
-                              value={track.volume}
-                              onChange={v=>updateTrack(track.id,()=>({volume:v}))}
-                              min={0} max={1} step={0.1} TC={TC}
-                              formatLabel={v=>v===0?"SILENT":v<0.3?"LOW":v<0.6?"MEDIUM":v<0.9?"LOUD":"MAX"}
-                            />
-                          </div>
-
-                          {/* REVERB */}
-                          <div>
-                            <StepControl
-                              label="🌊 REVERB"
-                              value={track.reverb||0}
-                              onChange={v=>updateTrack(track.id,()=>({reverb:v}))}
-                              min={0} max={1} step={0.1} TC={TC}
-                              formatLabel={reverbLabel}
-                            />
-                          </div>
-
-                          {/* EQ */}
+                          <StepControl label="🔊 VOLUME" value={track.volume} onChange={v=>updateTrack(track.id,()=>({volume:v}))} min={0} max={1} step={0.1} TC={TC} formatLabel={volLabel}/>
+                          <StepControl label="🌊 REVERB" value={track.reverb||0} onChange={v=>updateTrack(track.id,()=>({reverb:v}))} min={0} max={1} step={0.1} TC={TC} formatLabel={reverbLabel}/>
                           <div>
                             <p style={{color:TC,fontSize:10,fontWeight:700,letterSpacing:"0.1em",marginBottom:10}}>🎚️ EQ</p>
                             <div style={{display:"flex",flexDirection:"column",gap:12}}>
-                              <StepControl
-                                label="LOWS"
-                                value={track.lows||0}
-                                onChange={v=>updateTrack(track.id,()=>({lows:v}))}
-                                min={-1} max={1} step={0.1} TC={TC}
-                                formatLabel={eqLabel}
-                              />
-                              <StepControl
-                                label="MIDS"
-                                value={track.mids||0}
-                                onChange={v=>updateTrack(track.id,()=>({mids:v}))}
-                                min={-1} max={1} step={0.1} TC={TC}
-                                formatLabel={eqLabel}
-                              />
-                              <StepControl
-                                label="HIGHS"
-                                value={track.highs||0}
-                                onChange={v=>updateTrack(track.id,()=>({highs:v}))}
-                                min={-1} max={1} step={0.1} TC={TC}
-                                formatLabel={eqLabel}
-                              />
+                              <StepControl label="LOWS" value={track.lows||0} onChange={v=>updateTrack(track.id,()=>({lows:v}))} min={-1} max={1} step={0.1} TC={TC} formatLabel={eqLabel}/>
+                              <StepControl label="MIDS" value={track.mids||0} onChange={v=>updateTrack(track.id,()=>({mids:v}))} min={-1} max={1} step={0.1} TC={TC} formatLabel={eqLabel}/>
+                              <StepControl label="HIGHS" value={track.highs||0} onChange={v=>updateTrack(track.id,()=>({highs:v}))} min={-1} max={1} step={0.1} TC={TC} formatLabel={eqLabel}/>
                             </div>
                           </div>
-
-                          {/* Mute / Solo */}
                           <div style={{display:"flex",gap:8}}>
                             <button onClick={()=>updateTrack(track.id,t=>({muted:!t.muted}))} style={{flex:1,padding:"8px",borderRadius:10,background:track.muted?"#ff444422":"transparent",border:`1px solid ${track.muted?"#ff4444":"rgba(128,128,128,0.3)"}`,color:track.muted?"#ff4444":T.subtext,cursor:"pointer",fontSize:11,fontWeight:700}}>🔇 {track.muted?"UNMUTE":"MUTE"}</button>
                             <button onClick={()=>updateTrack(track.id,t=>({solo:!t.solo}))} style={{flex:1,padding:"8px",borderRadius:10,background:track.solo?`${TC}22`:"transparent",border:`1px solid ${track.solo?TC:"rgba(128,128,128,0.3)"}`,color:track.solo?TC:T.subtext,cursor:"pointer",fontSize:11,fontWeight:700}}>⭐ {track.solo?"UNSOLO":"SOLO"}</button>
                           </div>
-
-                          {/* Track Notes */}
                           <div>
                             <p style={{color:TC,fontSize:10,fontWeight:700,letterSpacing:"0.1em",marginBottom:6}}>📝 TRACK NOTES</p>
                             <textarea style={inp({height:60,resize:"none",fontFamily:"monospace",fontSize:12,borderColor:`${TC}33`,padding:"8px"})}
@@ -1039,8 +1043,6 @@ export default function App() {
                               value={track.notes||""}
                               onChange={e=>updateTrack(track.id,()=>({notes:e.target.value}))}/>
                           </div>
-
-                          {/* Takes */}
                           {track.recordings.length>0&&(
                             <div>
                               <p style={{color:TC,fontSize:10,fontWeight:700,letterSpacing:"0.1em",marginBottom:8}}>TAKES ({track.recordings.length})</p>
@@ -1057,9 +1059,10 @@ export default function App() {
                               </div>
                             </div>
                           )}
-
-                          {/* Reset */}
-                          <button onClick={()=>{ if(window.confirm(`Reset ${track.name} to defaults?`)){ updateTrack(track.id,()=>({recordings:[],notes:"",reverb:0,lows:0,mids:0,highs:0,volume:0.8,muted:false,solo:false})); } }} style={{padding:"8px",borderRadius:10,background:"#ff444411",border:"1px solid #ff444433",color:"#ff444488",cursor:"pointer",fontSize:11,fontWeight:700}}>🗑️ RESET TRACK</button>
+                          {/* Reset track data button inside dropdown */}
+                          <button onClick={()=>updateTrack(track.id,()=>({recordings:[],notes:"",reverb:0,lows:0,mids:0,highs:0,volume:0.8,muted:false,solo:false}))} style={{padding:"8px",borderRadius:10,background:"#ff9500",border:"1px solid #ff950066",color:"#fff",cursor:"pointer",fontSize:11,fontWeight:700}}>
+                            🔄 RESET TRACK DATA (KEEP TRACK)
+                          </button>
                         </div>
                       )}
                     </div>
@@ -1067,16 +1070,24 @@ export default function App() {
                 })}
               </div>
 
+              {/* Add Track Button */}
+              <button onClick={addTrack} style={{
+                width:"100%",marginTop:10,padding:"12px",borderRadius:14,
+                background:`${AC}11`,border:`2px dashed ${AC}44`,
+                color:AC,cursor:"pointer",fontSize:13,fontWeight:700,
+                letterSpacing:"0.1em",transition:"all 0.2s",
+              }}>+ ADD TRACK</button>
+
               <input ref={studioFileInputRef} type="file" accept="audio/*" style={{display:"none"}}
-                onChange={e=>{ if(studioFileTrackId.current!==null){ handleStudioFileUpload(studioFileTrackId.current,e); studioFileTrackId.current=null; } }}/>
+                onChange={e=>{if(studioFileTrackId.current!==null){handleStudioFileUpload(studioFileTrackId.current,e);studioFileTrackId.current=null;}}}/>
 
               <div style={{marginTop:12,padding:"12px 14px",borderRadius:12,background:T.cardBg,border:`1px solid ${T.border}`}}>
                 <p style={{color:T.subtext,fontSize:10,lineHeight:1.8,margin:0}}>
+                  <span style={{color:AC}}>▸</span> 🗑️ in header = delete entire track &nbsp;
+                  <span style={{color:AC}}>▸</span> 🔄 inside ▼ = reset data, keep track &nbsp;
+                  <span style={{color:AC}}>▸</span> + ADD TRACK = add a new blank track<br/>
                   <span style={{color:AC}}>▸</span> Tap color dot to change track color &nbsp;
-                  <span style={{color:AC}}>▸</span> Tap track name to rename &nbsp;
-                  <span style={{color:AC}}>▸</span> ▼ = volume, reverb, EQ, mute, solo, notes<br/>
-                  <span style={{color:AC}}>▸</span> 🎙️ REC = 8 count-in then records (other tracks play in your ear) &nbsp;
-                  <span style={{color:AC}}>▸</span> EQ: LOWS/MIDS/HIGHS ⬆️⬇️ to shape tone
+                  <span style={{color:AC}}>▸</span> 🎙️ REC = 8 count then records while others play
                 </p>
               </div>
             </div>
@@ -1389,4 +1400,4 @@ export default function App() {
       )}
     </>
   );
-    }
+            }
