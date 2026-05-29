@@ -16,10 +16,8 @@ const PROJECT_COLORS = [
   "#ff0080","#00ff80","#8080ff","#ff8000",
 ];
 
-const TRACK_COLORS = [
-  "#39ff14","#00cfff","#bf5fff","#ff9500","#ff3366","#ffee00"
-];
-const TRACK_NAMES = ["Guitar","Bass","Drums","Vocals","Lead Guitar","Keys"];
+const TRACK_COLORS = ["#39ff14","#00cfff","#bf5fff","#ff9500","#ff3366","#ffee00"];
+const TRACK_NAMES  = ["Guitar","Bass","Drums","Vocals","Lead Guitar","Keys"];
 
 const DEFAULT_SECTIONS = [
   "Intro","Pre-Verse","Verse","Chorus","Between Verse",
@@ -29,75 +27,62 @@ const DEFAULT_INSTRUMENTS = [
   "Guitar","Bass","Drums","Vocals","Lead Guitar","Synth","Backing Vocals",
 ];
 const STATUS_OPTIONS = ["Draft","In Progress","Final"];
-const STATUS_COLORS  = { "Draft":"#888","In Progress":"#ff9500","Final":"#39ff14" };
+const STATUS_COLORS  = {"Draft":"#888","In Progress":"#ff9500","Final":"#39ff14"};
 
 function makeDefaultSongs() {
   return SONG_COLORS.map((c,i)=>({
-    id:i, name:`Song ${i+1}`, color:c,
+    id:i,name:`Song ${i+1}`,color:c,
     sections:[...DEFAULT_SECTIONS],
-    status:{}, locked:{}, starred:{},
-    sectionNotes:{}, audioNotes:{},
-    notes:"", bpm:"", key:"",
+    status:{},locked:{},starred:{},
+    sectionNotes:{},audioNotes:{},
+    notes:"",bpm:"",key:"",
   }));
 }
 function makeDefaultTracks() {
   return TRACK_NAMES.map((name,i)=>({
-    id:i, name, color:TRACK_COLORS[i],
-    recordings:[], volume:0.8, muted:false, solo:false,
-    reverb:0, lows:0, mids:0, highs:0, notes:"",
+    id:i,name,color:TRACK_COLORS[i],
+    recordings:[],volume:0.8,muted:false,solo:false,
+    reverb:0,lows:0,mids:0,highs:0,notes:"",
   }));
 }
 function makeProject(id,name,color) {
   return {
-    id, name, color, songName:"",
+    id,name,color,songName:"",
     instruments:[...DEFAULT_INSTRUMENTS],
     songs:makeDefaultSongs(),
-    checks:{}, setlist:[],
-    studio:{ tracks:makeDefaultTracks() },
+    checks:{},setlist:[],
+    studio:{tracks:makeDefaultTracks()},
   };
 }
 
-const STORAGE_KEY   = "db_v14";
-const STORAGE_AP    = "db_ap_v14";
-const STORAGE_THEME = "db_theme_v14";
-const STORAGE_ACCENT= "db_accent_v14";
+const STORAGE_KEY   ="db_v15";
+const STORAGE_AP    ="db_ap_v15";
+const STORAGE_THEME ="db_theme_v15";
+const STORAGE_ACCENT="db_accent_v15";
 
-function load(key,fallback) {
-  try { const v=localStorage.getItem(key); return v?JSON.parse(v):fallback; }
-  catch { return fallback; }
-}
-function save(key,val) {
-  try { localStorage.setItem(key,JSON.stringify(val)); } catch {}
-}
-function fmtTime(s) {
-  return `${Math.floor(s/60)}:${Math.floor(s%60).toString().padStart(2,"0")}`;
-}
+function load(key,fallback){try{const v=localStorage.getItem(key);return v?JSON.parse(v):fallback;}catch{return fallback;}}
+function save(key,val){try{localStorage.setItem(key,JSON.stringify(val));}catch{}}
+function fmtTime(s){return `${Math.floor(s/60)}:${Math.floor(s%60).toString().padStart(2,"0")}`;}
 
-async function createReverbNode(ac,amount) {
+async function createReverbNode(ac,amount){
   const convolver=ac.createConvolver();
   const rate=ac.sampleRate;
   const length=rate*(0.5+amount*3.5);
   const impulse=ac.createBuffer(2,length,rate);
-  for(let c=0;c<2;c++){
-    const ch=impulse.getChannelData(c);
-    for(let i=0;i<length;i++) ch[i]=(Math.random()*2-1)*Math.pow(1-i/length,1+amount*3);
-  }
-  convolver.buffer=impulse;
-  return convolver;
+  for(let c=0;c<2;c++){const ch=impulse.getChannelData(c);for(let i=0;i<length;i++)ch[i]=(Math.random()*2-1)*Math.pow(1-i/length,1+amount*3);}
+  convolver.buffer=impulse;return convolver;
 }
-
-function applyEQ(ac,source,track) {
-  const low=ac.createBiquadFilter();
-  const mid=ac.createBiquadFilter();
-  const high=ac.createBiquadFilter();
-  low.type="lowshelf";   low.frequency.value=200;  low.gain.value=(track.lows||0)*12;
-  mid.type="peaking";    mid.frequency.value=1000; mid.gain.value=(track.mids||0)*12; mid.Q.value=1;
-  high.type="highshelf"; high.frequency.value=4000;high.gain.value=(track.highs||0)*12;
-  source.connect(low); low.connect(mid); mid.connect(high);
-  return high;
+function applyEQ(ac,source,track){
+  const low=ac.createBiquadFilter();const mid=ac.createBiquadFilter();const high=ac.createBiquadFilter();
+  low.type="lowshelf";low.frequency.value=200;low.gain.value=(track.lows||0)*12;
+  mid.type="peaking";mid.frequency.value=1000;mid.gain.value=(track.mids||0)*12;mid.Q.value=1;
+  high.type="highshelf";high.frequency.value=4000;high.gain.value=(track.highs||0)*12;
+  source.connect(low);low.connect(mid);mid.connect(high);return high;
 }
+function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v));}
+function dbToLinear(db){return Math.pow(10,db/20);}
 
-function StepControl({label,value,onChange,min=0,max=1,step=0.1,TC,formatLabel}) {
+function StepControl({label,value,onChange,min=0,max=1,step=0.1,TC,formatLabel}){
   const pct=Math.round(((value-min)/(max-min))*100);
   const displayVal=value>0?`+${Math.round(value*10)}`:Math.round(value*10);
   return(
@@ -108,28 +93,27 @@ function StepControl({label,value,onChange,min=0,max=1,step=0.1,TC,formatLabel})
       </div>
       <div style={{display:"flex",alignItems:"center",gap:6}}>
         <button onClick={()=>onChange(Math.max(min,Math.round((value-step)*10)/10))}
-          style={{width:32,height:32,borderRadius:8,flexShrink:0,background:value<=min?`${TC}08`:`${TC}22`,border:`1px solid ${TC}${value<=min?"22":"66"}`,color:value<=min?`${TC}44`:TC,cursor:value<=min?"not-allowed":"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>⬇️</button>
+          style={{width:36,height:36,borderRadius:8,flexShrink:0,background:value<=min?`${TC}08`:`${TC}22`,border:`1px solid ${TC}${value<=min?"22":"66"}`,color:value<=min?`${TC}44`:TC,cursor:value<=min?"not-allowed":"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>⬇️</button>
         <div style={{flex:1,height:6,borderRadius:3,background:"rgba(128,128,128,0.2)",overflow:"hidden"}}>
           <div style={{height:"100%",width:`${pct}%`,background:`linear-gradient(90deg,${TC}88,${TC})`,borderRadius:3,boxShadow:value!==0?`0 0 6px ${TC}66`:"none",transition:"width 0.1s ease"}}/>
         </div>
         <button onClick={()=>onChange(Math.min(max,Math.round((value+step)*10)/10))}
-          style={{width:32,height:32,borderRadius:8,flexShrink:0,background:value>=max?`${TC}08`:`${TC}22`,border:`1px solid ${TC}${value>=max?"22":"66"}`,color:value>=max?`${TC}44`:TC,cursor:value>=max?"not-allowed":"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>⬆️</button>
+          style={{width:36,height:36,borderRadius:8,flexShrink:0,background:value>=max?`${TC}08`:`${TC}22`,border:`1px solid ${TC}${value>=max?"22":"66"}`,color:value>=max?`${TC}44`:TC,cursor:value>=max?"not-allowed":"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>⬆️</button>
       </div>
       {formatLabel&&<p style={{color:"rgba(128,128,128,0.6)",fontSize:9,margin:"4px 0 0",letterSpacing:"0.05em"}}>{formatLabel(value)}</p>}
     </div>
   );
 }
 
-const NX = {
-  bg:"#0a0a0f", panel:"#111118", border:"#1e1e2e",
-  accent:"#00e5ff", accentDim:"#00e5ff22",
-  green:"#00ff9d", amber:"#ffb700", red:"#ff4466", purple:"#b060ff",
-  text:"#e0e0f0", muted:"#5a5a7a",
+// ── NEXUS MIX ──────────────────────────────────────────────────────────────
+const NX={
+  bg:"#0a0a0f",panel:"#111118",border:"#1e1e2e",
+  accent:"#00e5ff",accentDim:"#00e5ff22",
+  green:"#00ff9d",amber:"#ffb700",red:"#ff4466",purple:"#b060ff",
+  text:"#e0e0f0",muted:"#5a5a7a",
 };
 
-function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v));}
-function dbToLinear(db){return Math.pow(10,db/20);}
-
+// NxKnob — drag up/down to change value
 function NxKnob({label,value,min,max,unit="",color=NX.accent,onChange,size=48}){
   const dragRef=useRef(null);
   const norm=(value-min)/(max-min);
@@ -140,28 +124,38 @@ function NxKnob({label,value,min,max,unit="",color=NX.accent,onChange,size=48}){
   const[ex,ey]=toXY(angle);
   const large=norm*270>180?1:0;
   const handleMouseDown=e=>{
+    e.preventDefault();
     dragRef.current={startY:e.clientY,startVal:value};
-    const move=ev=>{
-      const delta=(dragRef.current.startY-ev.clientY)/150;
-      const newVal=clamp(dragRef.current.startVal+delta*(max-min),min,max);
-      onChange(parseFloat(newVal.toFixed(1)));
-    };
+    const move=ev=>{const delta=(dragRef.current.startY-ev.clientY)/150;onChange(parseFloat(clamp(dragRef.current.startVal+delta*(max-min),min,max).toFixed(1)));};
     const up=()=>{window.removeEventListener("mousemove",move);window.removeEventListener("mouseup",up);};
     window.addEventListener("mousemove",move);window.addEventListener("mouseup",up);
   };
+  const handleTouchStart=e=>{
+    dragRef.current={startY:e.touches[0].clientY,startVal:value};
+    const move=ev=>{ev.preventDefault();const delta=(dragRef.current.startY-ev.touches[0].clientY)/100;onChange(parseFloat(clamp(dragRef.current.startVal+delta*(max-min),min,max).toFixed(1)));};
+    const up=()=>{document.removeEventListener("touchmove",move,{passive:false});document.removeEventListener("touchend",up);};
+    document.addEventListener("touchmove",move,{passive:false});document.addEventListener("touchend",up);
+  };
   return(
     <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,userSelect:"none"}}>
-      <svg width={size} height={size} onMouseDown={handleMouseDown} style={{cursor:"ns-resize"}}>
+      <svg width={size} height={size} onMouseDown={handleMouseDown} onTouchStart={handleTouchStart} style={{cursor:"ns-resize",touchAction:"none"}}>
         <circle cx={cx} cy={cy} r={r} fill="none" stroke={NX.border} strokeWidth={3}/>
         <path d={`M ${sx} ${sy} A ${r} ${r} 0 ${large} 1 ${ex} ${ey}`} fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" style={{filter:`drop-shadow(0 0 4px ${color})`}}/>
         <circle cx={ex} cy={ey} r={3} fill={color}/>
-        <text x={cx} y={cy+4} textAnchor="middle" fill={NX.text} style={{fontSize:size*0.22,fontFamily:"monospace"}}>
+        <text x={cx} y={cy+4} textAnchor="middle" fill={NX.text} style={{fontSize:size*0.22,fontFamily:"monospace",pointerEvents:"none"}}>
           {Math.abs(value)<10?value.toFixed(1):Math.round(value)}
         </text>
       </svg>
       <span style={{fontSize:9,color:NX.muted,fontWeight:700,letterSpacing:1,textTransform:"uppercase"}}>
         {label}{unit&&<span style={{color:NX.accent}}> {unit}</span>}
       </span>
+      {/* Up/Down tap buttons for mobile */}
+      <div style={{display:"flex",gap:4}}>
+        <button onClick={()=>onChange(parseFloat(clamp(value-(max-min)/20,min,max).toFixed(1)))}
+          style={{width:28,height:22,borderRadius:4,background:`${color}22`,border:`1px solid ${color}44`,color,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>⬇️</button>
+        <button onClick={()=>onChange(parseFloat(clamp(value+(max-min)/20,min,max).toFixed(1)))}
+          style={{width:28,height:22,borderRadius:4,background:`${color}22`,border:`1px solid ${color}44`,color,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>⬆️</button>
+      </div>
     </div>
   );
 }
@@ -199,26 +193,14 @@ function EQVisualizer({bands}){
   const logMin=Math.log10(20),logMax=Math.log10(20000);
   const freqToX=f=>((Math.log10(f)-logMin)/(logMax-logMin))*W;
   const gainToY=g=>H/2-(g/18)*(H/2-4);
-  const getGainAt=freq=>{
-    let total=0;
-    bands.forEach(b=>{
-      const d=Math.abs(Math.log10(freq/b.freq));
-      total+=b.gain*Math.exp(-d*d*1.5);
-    });
-    return clamp(total,-18,18);
-  };
+  const getGainAt=freq=>{let total=0;bands.forEach(b=>{const d=Math.abs(Math.log10(freq/b.freq));total+=b.gain*Math.exp(-d*d*1.5);});return clamp(total,-18,18);};
   const freqs=[20,50,100,200,500,1000,2000,5000,10000,20000];
   const pts=freqs.map(f=>({x:freqToX(f),y:gainToY(getGainAt(f))}));
   const pathD=pts.map((p,i)=>i===0?`M ${p.x} ${p.y}`:`L ${p.x} ${p.y}`).join(" ");
   const fillD=pathD+` L ${W} ${H/2} L 0 ${H/2} Z`;
   return(
     <svg width={W} height={H} style={{display:"block"}}>
-      <defs>
-        <linearGradient id="eqf" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={NX.accent} stopOpacity="0.3"/>
-          <stop offset="100%" stopColor={NX.accent} stopOpacity="0"/>
-        </linearGradient>
-      </defs>
+      <defs><linearGradient id="eqf" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={NX.accent} stopOpacity="0.3"/><stop offset="100%" stopColor={NX.accent} stopOpacity="0"/></linearGradient></defs>
       {[-12,-6,0,6,12].map(g=><line key={g} x1={0} y1={gainToY(g)} x2={W} y2={gainToY(g)} stroke={g===0?NX.border+"88":NX.border+"44"} strokeWidth={g===0?1.5:0.5}/>)}
       <path d={fillD} fill="url(#eqf)"/>
       <path d={pathD} fill="none" stroke={NX.accent} strokeWidth={2} style={{filter:`drop-shadow(0 0 3px ${NX.accent})`}}/>
@@ -228,8 +210,7 @@ function EQVisualizer({bands}){
 }
 
 function WaveformDisplay({analyser,isPlaying}){
-  const canvasRef=useRef(null);
-  const animRef=useRef(null);
+  const canvasRef=useRef(null);const animRef=useRef(null);
   useEffect(()=>{
     const canvas=canvasRef.current;if(!canvas)return;
     const ctx=canvas.getContext("2d");const W=canvas.width,H=canvas.height;
@@ -243,11 +224,7 @@ function WaveformDisplay({analyser,isPlaying}){
         const sw=W/bufLen;let x=0;
         for(let i=0;i<bufLen;i++){const v=data[i]/128;const y=(v*H)/2;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);x+=sw;}
         ctx.stroke();
-      }else{
-        ctx.beginPath();ctx.strokeStyle=NX.border;ctx.lineWidth=1;ctx.moveTo(0,H/2);
-        for(let x=0;x<W;x+=4){ctx.lineTo(x,H/2+(Math.random()-0.5)*1.5);}
-        ctx.stroke();
-      }
+      }else{ctx.beginPath();ctx.strokeStyle=NX.border;ctx.lineWidth=1;ctx.moveTo(0,H/2);for(let x=0;x<W;x+=4){ctx.lineTo(x,H/2+(Math.random()-0.5)*1.5);}ctx.stroke();}
     };
     draw();return()=>cancelAnimationFrame(animRef.current);
   },[analyser,isPlaying]);
@@ -255,8 +232,7 @@ function WaveformDisplay({analyser,isPlaying}){
 }
 
 function SpectrumAnalyzer({analyser,isPlaying}){
-  const canvasRef=useRef(null);
-  const animRef=useRef(null);
+  const canvasRef=useRef(null);const animRef=useRef(null);
   useEffect(()=>{
     const canvas=canvasRef.current;if(!canvas)return;
     const ctx=canvas.getContext("2d");const W=canvas.width,H=canvas.height;
@@ -267,15 +243,8 @@ function SpectrumAnalyzer({analyser,isPlaying}){
         const bufLen=analyser.frequencyBinCount;const data=new Uint8Array(bufLen);
         analyser.getByteFrequencyData(data);
         const bw=W/(bufLen/4);
-        for(let i=0;i<bufLen/4;i++){
-          const v=data[i]/255;const bh=v*H;
-          const hue=180+v*80;
-          ctx.fillStyle=`hsl(${hue},100%,${40+v*30}%)`;ctx.shadowColor=`hsl(${hue},100%,60%)`;ctx.shadowBlur=4;
-          ctx.fillRect(i*bw,H-bh,bw-1,bh);
-        }
-      }else{
-        for(let i=0;i<50;i++){ctx.fillStyle=NX.border;ctx.fillRect(i*(W/50),H-Math.random()*3-1,W/50-1,3);}
-      }
+        for(let i=0;i<bufLen/4;i++){const v=data[i]/255;const bh=v*H;const hue=180+v*80;ctx.fillStyle=`hsl(${hue},100%,${40+v*30}%)`;ctx.shadowColor=`hsl(${hue},100%,60%)`;ctx.shadowBlur=4;ctx.fillRect(i*bw,H-bh,bw-1,bh);}
+      }else{for(let i=0;i<50;i++){ctx.fillStyle=NX.border;ctx.fillRect(i*(W/50),H-Math.random()*3-1,W/50-1,3);}}
     };
     draw();return()=>cancelAnimationFrame(animRef.current);
   },[analyser,isPlaying]);
@@ -286,6 +255,8 @@ function NexusMixScreen({accentColor}){
   const audioCtxRef=useRef(null);
   const sourceRef=useRef(null);
   const analyserRef=useRef(null);
+  const originalBufferRef=useRef(null);
+
   const [isPlaying,setIsPlaying]=useState(false);
   const [fileName,setFileName]=useState(null);
   const [audioBuffer,setAudioBuffer]=useState(null);
@@ -305,10 +276,6 @@ function NexusMixScreen({accentColor}){
   const [deEsserActive,setDeEsserActive]=useState(false);
   const [gate,setGate]=useState({threshold:-50,attack:5,release:200,hold:50});
   const [gateActive,setGateActive]=useState(false);
-  const [pitch,setPitch]=useState({shift:0,formant:0,correction:0});
-  const [pitchActive,setPitchActive]=useState(false);
-  const [quantize,setQuantize]=useState({strength:50,grid:"1/16",swing:0});
-  const [quantizeActive,setQuantizeActive]=useState(false);
   const [limiter,setLimiter]=useState({ceiling:-0.3,release:50});
   const [limiterActive,setLimiterActive]=useState(true);
   const [saturation,setSaturation]=useState({drive:0,type:"tape",mix:30});
@@ -316,6 +283,14 @@ function NexusMixScreen({accentColor}){
   const [stereoWidth,setStereoWidth]=useState(100);
   const [analyzing,setAnalyzing]=useState(false);
   const [suggestions,setSuggestions]=useState([]);
+  const [appliedSuggestions,setAppliedSuggestions]=useState({});
+  const [aiMasterActive,setAiMasterActive]=useState(false);
+  const [preAiSnapshot,setPreAiSnapshot]=useState(null);
+  const [exporting,setExporting]=useState(false);
+  const [exportFormat,setExportFormat]=useState("wav");
+
+  // Snapshot of settings before AI master
+  const takeSnapshot=()=>({eq:[...eq.map(b=>({...b}))],eqActive,comp:{...comp},compActive,limiter:{...limiter},limiterActive,masterGain,stereoWidth,reverbActive,reverb:{...reverb}});
 
   useEffect(()=>{
     let raf;
@@ -340,6 +315,7 @@ function NexusMixScreen({accentColor}){
     const buf=await file.arrayBuffer();
     const decoded=await ctx.decodeAudioData(buf);
     setAudioBuffer(decoded);
+    originalBufferRef.current=decoded;
   };
 
   const buildChain=useCallback(()=>{
@@ -347,24 +323,29 @@ function NexusMixScreen({accentColor}){
     if(sourceRef.current){try{sourceRef.current.stop();}catch{}}
     const src=ctx.createBufferSource();src.buffer=audioBuffer;sourceRef.current=src;
     let node=src;
+    // EQ
     eq.forEach(band=>{
       const f=ctx.createBiquadFilter();
       f.type=band.label==="Sub"||band.label==="Bass"?"lowshelf":band.label==="Air"?"highshelf":"peaking";
       f.frequency.value=band.freq;f.gain.value=eqActive?band.gain:0;f.Q.value=1.4;
       node.connect(f);node=f;
     });
+    // Compressor
     const compNode=ctx.createDynamicsCompressor();
     compNode.threshold.value=compActive?comp.threshold:0;compNode.ratio.value=compActive?comp.ratio:1;
     compNode.attack.value=comp.attack/1000;compNode.release.value=comp.release/1000;compNode.knee.value=6;
     node.connect(compNode);node=compNode;
     const makeupGainNode=ctx.createGain();makeupGainNode.gain.value=dbToLinear(compActive?comp.makeup:0);
     node.connect(makeupGainNode);node=makeupGainNode;
+    // Limiter
     const limNode=ctx.createDynamicsCompressor();
     limNode.threshold.value=limiterActive?limiter.ceiling:0;limNode.ratio.value=20;
     limNode.attack.value=0.001;limNode.release.value=limiter.release/1000;limNode.knee.value=0;
     node.connect(limNode);node=limNode;
+    // Master Gain
     const mgNode=ctx.createGain();mgNode.gain.value=dbToLinear(masterGain);
     node.connect(mgNode);node=mgNode;
+    // Analyser
     const analyser=ctx.createAnalyser();analyser.fftSize=2048;analyser.smoothingTimeConstant=0.8;
     analyserRef.current=analyser;node.connect(analyser);analyser.connect(ctx.destination);
     src.start(0);setIsPlaying(true);src.onended=()=>setIsPlaying(false);
@@ -377,7 +358,10 @@ function NexusMixScreen({accentColor}){
   };
   const handleStop=()=>{try{sourceRef.current?.stop();}catch{}setIsPlaying(false);};
 
+  // Auto-master
   const handleAutoMaster=()=>{
+    const snap=takeSnapshot();
+    setPreAiSnapshot(snap);
     setEq([
       {label:"Sub",freq:60,gain:-2},{label:"Bass",freq:120,gain:1.5},
       {label:"Low-Mid",freq:400,gain:-1},{label:"Mid",freq:1000,gain:0.5},
@@ -386,46 +370,192 @@ function NexusMixScreen({accentColor}){
     setComp({threshold:-18,ratio:3,attack:15,release:80,makeup:2});setCompActive(true);
     setLimiter({ceiling:-0.3,release:50});setLimiterActive(true);
     setMasterGain(2);setStereoWidth(110);
-    setSuggestions(["▸ Auto-master preset applied — adjust to taste.","▸ EQ: -2dB sub cut, +2dB air shelf applied.","▸ Compressor: 3:1 ratio at -18dB threshold.","▸ True peak limiter: ceiling at -0.3dBTP."]);
+    setAiMasterActive(true);
+    setSuggestions([
+      "▸ EQ: -2dB sub cut to remove rumble.",
+      "▸ EQ: +2dB air shelf for presence and clarity.",
+      "▸ Compressor: 3:1 ratio at -18dB threshold with +2dB makeup.",
+      "▸ True peak limiter: ceiling at -0.3dBTP for streaming.",
+      "▸ Stereo width: 110% for subtle widening.",
+    ]);
   };
 
+  // Toggle AI master on/off for A/B comparison
+  const toggleAiMaster=()=>{
+    if(aiMasterActive&&preAiSnapshot){
+      // Restore original settings
+      setEq(preAiSnapshot.eq);setEqActive(preAiSnapshot.eqActive);
+      setComp(preAiSnapshot.comp);setCompActive(preAiSnapshot.compActive);
+      setLimiter(preAiSnapshot.limiter);setLimiterActive(preAiSnapshot.limiterActive);
+      setMasterGain(preAiSnapshot.masterGain);setStereoWidth(preAiSnapshot.stereoWidth);
+      setAiMasterActive(false);
+    } else {
+      handleAutoMaster();
+    }
+  };
+
+  // AI Analyze
   const handleAIAnalyze=async()=>{
-    setAnalyzing(true);setSuggestions([]);
+    setAnalyzing(true);setSuggestions([]);setAppliedSuggestions({});
     try{
       const response=await fetch("https://api.anthropic.com/v1/messages",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
           model:"claude-sonnet-4-20250514",max_tokens:1000,
-          messages:[{role:"user",content:`You are an expert mixing and mastering engineer AI. Analyze these current plugin settings and provide 5 concise, specific, actionable suggestions. Format each as a single line starting with ▸. Current settings:
+          messages:[{role:"user",content:`You are an expert mixing and mastering engineer AI. Analyze these current plugin settings and provide exactly 5 concise, specific, actionable suggestions. Each suggestion MUST include exact parameter values to change. Format STRICTLY as JSON array like: [{"text":"▸ suggestion text","action":"eq|comp|limiter|reverb|gate|deesser|stereo|master","params":{...}}]. For eq actions params should have bandIndex (0-5) and gain. For comp: threshold, ratio, attack, release, makeup. For limiter: ceiling, release. For stereo: width. For master: gain. Current settings:
 - File: ${fileName||"No file loaded"}
 - EQ (${eqActive?"ON":"OFF"}): ${eq.map(b=>`${b.label}:${b.gain>0?"+":""}${b.gain}dB`).join(", ")}
-- Compressor (${compActive?"ON":"OFF"}): Threshold:${comp.threshold}dB, Ratio:${comp.ratio}:1, Attack:${comp.attack}ms
-- Reverb (${reverbActive?"ON":"OFF"}): Mix:${reverb.mix}%, Size:${reverb.size}%
+- Compressor (${compActive?"ON":"OFF"}): Threshold:${comp.threshold}dB, Ratio:${comp.ratio}:1, Attack:${comp.attack}ms, Release:${comp.release}ms, Makeup:${comp.makeup}dB
+- Reverb (${reverbActive?"ON":"OFF"}): Mix:${reverb.mix}%
 - De-Esser (${deEsserActive?"ON":"OFF"}): Freq:${deEsser.freq}Hz, Threshold:${deEsser.threshold}dB
 - Gate (${gateActive?"ON":"OFF"}): Threshold:${gate.threshold}dB
 - Limiter (${limiterActive?"ON":"OFF"}): Ceiling:${limiter.ceiling}dBTP
 - Saturation (${satActive?"ON":"OFF"}): Drive:${saturation.drive}%, Type:${saturation.type}
 - Stereo Width: ${stereoWidth}%
-- Master Gain: ${masterGain}dB`}]
+- Master Gain: ${masterGain}dB
+Return ONLY the JSON array, no other text.`}]
         })
       });
       const data=await response.json();
       const text=data.content?.map(c=>c.text||"").join("")||"";
-      const lines=text.split("\n").filter(l=>l.trim().startsWith("▸")).map(l=>l.trim());
-      setSuggestions(lines.length?lines:["▸ "+text.slice(0,200)]);
+      try{
+        const clean=text.replace(/```json|```/g,"").trim();
+        const parsed=JSON.parse(clean);
+        if(Array.isArray(parsed))setSuggestions(parsed);
+        else throw new Error("not array");
+      }catch{
+        const lines=text.split("\n").filter(l=>l.trim().startsWith("▸")).map(l=>({text:l.trim(),action:null,params:{}}));
+        setSuggestions(lines.length?lines:[{text:"▸ High-pass filter below 80Hz to remove rumble.",action:"eq",params:{bandIndex:0,gain:-6}},{text:"▸ Compressor: 3:1 ratio at -18dB threshold.",action:"comp",params:{threshold:-18,ratio:3}},{text:"▸ Add slight air boost at 10kHz for presence.",action:"eq",params:{bandIndex:5,gain:2}},{text:"▸ Limit ceiling at -0.3dBTP for streaming.",action:"limiter",params:{ceiling:-0.3}},{text:"▸ Increase master output by 2dB.",action:"master",params:{gain:2}}]);
+      }
     }catch{
-      setSuggestions(["▸ High-pass filter below 80Hz to remove rumble.","▸ Start with 4:1 compression, -18dB threshold.","▸ Add 20-30% reverb mix with 15-20ms pre-delay.","▸ De-esser on vocals around 7-8kHz if sibilant.","▸ Limit ceiling at -0.3dBTP for streaming."]);
+      setSuggestions([
+        {text:"▸ High-pass filter: cut Sub band by -6dB to remove rumble.",action:"eq",params:{bandIndex:0,gain:-6}},
+        {text:"▸ Compressor: set threshold to -18dB, ratio 3:1.",action:"comp",params:{threshold:-18,ratio:3,attack:15,release:80,makeup:2}},
+        {text:"▸ Air boost: +2dB at 10kHz for presence.",action:"eq",params:{bandIndex:5,gain:2}},
+        {text:"▸ True peak limiter at -0.3dBTP.",action:"limiter",params:{ceiling:-0.3,release:50}},
+        {text:"▸ Raise master output gain by +2dB.",action:"master",params:{gain:2}},
+      ]);
     }
     setAnalyzing(false);
   };
 
+  // Apply individual suggestion
+  const applySuggestion=(suggestion,index)=>{
+    if(appliedSuggestions[index]){
+      // Undo — restore pre-apply snapshot if we have it
+      if(appliedSuggestions[index].snapshot){
+        const s=appliedSuggestions[index].snapshot;
+        if(s.eq)setEq(s.eq);
+        if(s.comp)setComp(s.comp);
+        if(s.limiter)setLimiter(s.limiter);
+        if(s.masterGain!==undefined)setMasterGain(s.masterGain);
+        if(s.stereoWidth!==undefined)setStereoWidth(s.stereoWidth);
+      }
+      setAppliedSuggestions(prev=>{const n={...prev};delete n[index];return n;});
+      return;
+    }
+    const snap={eq:[...eq.map(b=>({...b}))],comp:{...comp},limiter:{...limiter},masterGain,stereoWidth};
+    const p=suggestion.params||{};
+    switch(suggestion.action){
+      case "eq":
+        if(p.bandIndex!==undefined&&p.gain!==undefined){setEq(prev=>prev.map((b,i)=>i===p.bandIndex?{...b,gain:p.gain}:b));setEqActive(true);}
+        break;
+      case "comp":
+        setComp(prev=>({...prev,...p}));setCompActive(true);break;
+      case "limiter":
+        setLimiter(prev=>({...prev,...p}));setLimiterActive(true);break;
+      case "reverb":
+        setReverb(prev=>({...prev,...p}));setReverbActive(true);break;
+      case "stereo":
+        if(p.width!==undefined)setStereoWidth(p.width);break;
+      case "master":
+        if(p.gain!==undefined)setMasterGain(p.gain);break;
+      default:break;
+    }
+    setAppliedSuggestions(prev=>({...prev,[index]:{snapshot:snap}}));
+  };
+
+  // Export audio
+  const handleExport=async()=>{
+    if(!audioBuffer||!audioCtxRef.current)return;
+    setExporting(true);
+    try{
+      const offlineCtx=new OfflineAudioContext(audioBuffer.numberOfChannels,audioBuffer.length,audioBuffer.sampleRate);
+      const src=offlineCtx.createBufferSource();src.buffer=audioBuffer;
+      let node=src;
+      // Apply EQ
+      eq.forEach(band=>{
+        const f=offlineCtx.createBiquadFilter();
+        f.type=band.label==="Sub"||band.label==="Bass"?"lowshelf":band.label==="Air"?"highshelf":"peaking";
+        f.frequency.value=band.freq;f.gain.value=eqActive?band.gain:0;f.Q.value=1.4;
+        node.connect(f);node=f;
+      });
+      // Compressor
+      const compNode=offlineCtx.createDynamicsCompressor();
+      compNode.threshold.value=compActive?comp.threshold:0;compNode.ratio.value=compActive?comp.ratio:1;
+      compNode.attack.value=comp.attack/1000;compNode.release.value=comp.release/1000;compNode.knee.value=6;
+      node.connect(compNode);node=compNode;
+      const makeupNode=offlineCtx.createGain();makeupNode.gain.value=dbToLinear(compActive?comp.makeup:0);
+      node.connect(makeupNode);node=makeupNode;
+      // Limiter
+      const limNode=offlineCtx.createDynamicsCompressor();
+      limNode.threshold.value=limiterActive?limiter.ceiling:0;limNode.ratio.value=20;
+      limNode.attack.value=0.001;limNode.release.value=limiter.release/1000;limNode.knee.value=0;
+      node.connect(limNode);node=limNode;
+      // Master gain
+      const mgNode=offlineCtx.createGain();mgNode.gain.value=dbToLinear(masterGain);
+      node.connect(mgNode);mgNode.connect(offlineCtx.destination);
+      src.start(0);
+      const rendered=await offlineCtx.startRendering();
+      // Convert to WAV
+      const wavBuffer=audioBufferToWav(rendered);
+      const blob=new Blob([wavBuffer],{type:"audio/wav"});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a");
+      const baseName=(fileName||"dogbones_master").replace(/\.[^/.]+$/,"");
+      a.href=url;a.download=`${baseName}_mastered.wav`;a.click();
+      URL.revokeObjectURL(url);
+    }catch(e){alert("Export failed: "+e.message);}
+    setExporting(false);
+  };
+
+  function audioBufferToWav(buffer){
+    const numChannels=buffer.numberOfChannels;
+    const sampleRate=buffer.sampleRate;
+    const format=1; // PCM
+    const bitDepth=16;
+    const bytesPerSample=bitDepth/8;
+    const blockAlign=numChannels*bytesPerSample;
+    const byteRate=sampleRate*blockAlign;
+    const dataLength=buffer.length*blockAlign;
+    const bufferLength=44+dataLength;
+    const arrayBuffer=new ArrayBuffer(bufferLength);
+    const view=new DataView(arrayBuffer);
+    const writeString=(offset,str)=>{for(let i=0;i<str.length;i++)view.setUint8(offset+i,str.charCodeAt(i));};
+    writeString(0,"RIFF");view.setUint32(4,36+dataLength,true);writeString(8,"WAVE");
+    writeString(12,"fmt ");view.setUint32(16,16,true);view.setUint16(20,format,true);
+    view.setUint16(22,numChannels,true);view.setUint32(24,sampleRate,true);
+    view.setUint32(28,byteRate,true);view.setUint16(32,blockAlign,true);view.setUint16(34,bitDepth,true);
+    writeString(36,"data");view.setUint32(40,dataLength,true);
+    let offset=44;
+    for(let i=0;i<buffer.length;i++){
+      for(let ch=0;ch<numChannels;ch++){
+        const sample=Math.max(-1,Math.min(1,buffer.getChannelData(ch)[i]));
+        view.setInt16(offset,sample<0?sample*0x8000:sample*0x7FFF,true);
+        offset+=2;
+      }
+    }
+    return arrayBuffer;
+  }
+
   const gridOptions=["1/4","1/8","1/16","1/32"];
-  const AC=accentColor||"#00e5ff";
 
   return(
     <div style={{background:NX.bg,minHeight:"100%",padding:"12px",fontFamily:"'Rajdhani',sans-serif"}}>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,borderBottom:`1px solid ${NX.border}`,paddingBottom:10}}>
+
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,borderBottom:`1px solid ${NX.border}`,paddingBottom:10,flexWrap:"wrap",gap:8}}>
         <div>
           <div style={{fontFamily:"monospace",fontSize:18,color:NX.accent,letterSpacing:4,textShadow:`0 0 16px ${NX.accent}`}}>◈ NEXUS MIX</div>
           <div style={{fontSize:10,color:NX.muted,letterSpacing:3}}>AI MIX & MASTER STUDIO</div>
@@ -435,9 +565,30 @@ function NexusMixScreen({accentColor}){
             ↑ LOAD<input type="file" accept="audio/*" onChange={handleFile} style={{display:"none"}}/>
           </label>
           {fileName&&<span style={{fontSize:9,color:NX.muted,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{fileName}</span>}
-          <button onClick={handlePlay} disabled={!audioBuffer} style={{background:isPlaying?NX.green+"22":NX.accentDim,border:`1px solid ${isPlaying?NX.green:NX.accent}`,color:isPlaying?NX.green:NX.accent,padding:"5px 14px",borderRadius:4,fontFamily:"monospace",fontSize:12,cursor:audioBuffer?"pointer":"not-allowed",boxShadow:isPlaying?`0 0 10px ${NX.green}44`:"none"}}>▶ PLAY</button>
+          <button onClick={handlePlay} disabled={!audioBuffer} style={{background:isPlaying?NX.green+"22":NX.accentDim,border:`1px solid ${isPlaying?NX.green:NX.accent}`,color:isPlaying?NX.green:NX.accent,padding:"5px 14px",borderRadius:4,fontFamily:"monospace",fontSize:12,cursor:audioBuffer?"pointer":"not-allowed"}}>▶ PLAY</button>
           <button onClick={handleStop} style={{background:"transparent",border:`1px solid ${NX.border}`,color:NX.muted,padding:"5px 10px",borderRadius:4,fontFamily:"monospace",fontSize:12,cursor:"pointer"}}>■ STOP</button>
-          <button onClick={handleAutoMaster} style={{background:`linear-gradient(135deg,${NX.purple}33,${NX.accent}22)`,border:`1px solid ${NX.purple}`,color:NX.purple,padding:"5px 10px",borderRadius:4,fontFamily:"monospace",fontSize:10,cursor:"pointer",boxShadow:`0 0 8px ${NX.purple}44`}}>⚡ AUTO-MASTER</button>
+
+          {/* AI Master toggle */}
+          <button onClick={preAiSnapshot?toggleAiMaster:handleAutoMaster} style={{
+            background:aiMasterActive?`linear-gradient(135deg,${NX.purple}44,${NX.accent}33)`:`linear-gradient(135deg,${NX.purple}22,${NX.accent}11)`,
+            border:`2px solid ${aiMasterActive?NX.purple:NX.border}`,
+            color:aiMasterActive?NX.purple:NX.muted,
+            padding:"5px 10px",borderRadius:4,fontFamily:"monospace",fontSize:10,cursor:"pointer",
+            boxShadow:aiMasterActive?`0 0 12px ${NX.purple}66`:"none",
+          }}>⚡ AI MASTER {aiMasterActive?"ON":"OFF"}</button>
+
+          {/* Export */}
+          <div style={{display:"flex",gap:4,alignItems:"center"}}>
+            <select value={exportFormat} onChange={e=>setExportFormat(e.target.value)}
+              style={{background:NX.panel,border:`1px solid ${NX.border}`,color:NX.muted,padding:"4px 6px",borderRadius:4,fontFamily:"monospace",fontSize:10,cursor:"pointer"}}>
+              <option value="wav">WAV</option>
+            </select>
+            <button onClick={handleExport} disabled={!audioBuffer||exporting} style={{
+              background:audioBuffer?"#00ff9d22":"transparent",border:`1px solid ${audioBuffer?"#00ff9d":"#333"}`,
+              color:audioBuffer?"#00ff9d":NX.muted,padding:"5px 10px",borderRadius:4,
+              fontFamily:"monospace",fontSize:10,cursor:audioBuffer?"pointer":"not-allowed",
+            }}>{exporting?"⏳ EXPORTING...":"💾 EXPORT"}</button>
+          </div>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
           <NxVU level={levels.L} label="L"/>
@@ -445,11 +596,29 @@ function NexusMixScreen({accentColor}){
           <NxVU level={levels.R} label="R"/>
         </div>
       </div>
+
+      {/* A/B indicator */}
+      {preAiSnapshot&&(
+        <div style={{marginBottom:10,padding:"8px 12px",borderRadius:6,background:aiMasterActive?`${NX.purple}22`:`${NX.border}44`,border:`1px solid ${aiMasterActive?NX.purple:NX.border}`,display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:10,color:aiMasterActive?NX.purple:NX.muted,fontFamily:"monospace",letterSpacing:1}}>
+            {aiMasterActive?"◈ AI MASTER ACTIVE — tap toggle to compare original":"◈ ORIGINAL SETTINGS — tap toggle to hear AI master"}
+          </span>
+          <button onClick={toggleAiMaster} style={{background:aiMasterActive?`${NX.purple}33`:`${NX.accent}22`,border:`1px solid ${aiMasterActive?NX.purple:NX.accent}`,color:aiMasterActive?NX.purple:NX.accent,padding:"3px 10px",borderRadius:3,fontFamily:"monospace",fontSize:10,cursor:"pointer"}}>
+            {aiMasterActive?"◄ ORIGINAL":"AI MASTER ►"}
+          </button>
+        </div>
+      )}
+
+      {/* Visualizers */}
       <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:12}}>
         <WaveformDisplay analyser={analyserRef.current} isPlaying={isPlaying}/>
         <SpectrumAnalyzer analyser={analyserRef.current} isPlaying={isPlaying}/>
       </div>
+
+      {/* Plugin cards */}
       <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+
+        {/* EQ */}
         <NxCard title="PARAMETRIC EQ" active={eqActive} onToggle={()=>setEqActive(v=>!v)} color={NX.accent} width={340}>
           <EQVisualizer bands={eq}/>
           <div style={{display:"flex",gap:8,marginTop:10,justifyContent:"space-between"}}>
@@ -463,7 +632,9 @@ function NexusMixScreen({accentColor}){
             ))}
           </div>
         </NxCard>
-        <NxCard title="COMPRESSOR" active={compActive} onToggle={()=>setCompActive(v=>!v)} color={NX.amber} width={245}>
+
+        {/* Compressor */}
+        <NxCard title="COMPRESSOR" active={compActive} onToggle={()=>setCompActive(v=>!v)} color={NX.amber} width={260}>
           <div style={{display:"flex",flexWrap:"wrap",gap:10,justifyContent:"center"}}>
             <NxKnob label="Threshold" value={comp.threshold} min={-60} max={0} unit="dB" color={NX.amber} onChange={v=>setComp(c=>({...c,threshold:v}))}/>
             <NxKnob label="Ratio" value={comp.ratio} min={1} max={20} color={NX.amber} onChange={v=>setComp(c=>({...c,ratio:v}))}/>
@@ -475,7 +646,9 @@ function NexusMixScreen({accentColor}){
             <div style={{fontSize:9,color:NX.muted}}>GR: <span style={{color:NX.amber}}>{compActive?Math.min(0,(comp.threshold+20)/comp.ratio).toFixed(1):"0.0"} dB</span></div>
           </div>
         </NxCard>
-        <NxCard title="REVERB" active={reverbActive} onToggle={()=>setReverbActive(v=>!v)} color={NX.purple} width={200}>
+
+        {/* Reverb */}
+        <NxCard title="REVERB" active={reverbActive} onToggle={()=>setReverbActive(v=>!v)} color={NX.purple} width={210}>
           <div style={{display:"flex",flexWrap:"wrap",gap:10,justifyContent:"center"}}>
             <NxKnob label="Mix" value={reverb.mix} min={0} max={100} unit="%" color={NX.purple} onChange={v=>setReverb(r=>({...r,mix:v}))}/>
             <NxKnob label="Size" value={reverb.size} min={0} max={100} unit="%" color={NX.purple} onChange={v=>setReverb(r=>({...r,size:v}))}/>
@@ -483,14 +656,18 @@ function NexusMixScreen({accentColor}){
             <NxKnob label="Pre-DLY" value={reverb.predelay} min={0} max={200} unit="ms" color={NX.purple} onChange={v=>setReverb(r=>({...r,predelay:v}))}/>
           </div>
         </NxCard>
-        <NxCard title="DE-ESSER" active={deEsserActive} onToggle={()=>setDeEsserActive(v=>!v)} color={NX.green} width={180}>
+
+        {/* De-Esser */}
+        <NxCard title="DE-ESSER" active={deEsserActive} onToggle={()=>setDeEsserActive(v=>!v)} color={NX.green} width={190}>
           <div style={{display:"flex",gap:8,justifyContent:"center"}}>
             <NxKnob label="Freq" value={deEsser.freq} min={2000} max={16000} unit="Hz" color={NX.green} onChange={v=>setDeEsser(d=>({...d,freq:v}))}/>
             <NxKnob label="Thresh" value={deEsser.threshold} min={-40} max={0} unit="dB" color={NX.green} onChange={v=>setDeEsser(d=>({...d,threshold:v}))}/>
             <NxKnob label="Ratio" value={deEsser.ratio} min={1} max={20} color={NX.green} onChange={v=>setDeEsser(d=>({...d,ratio:v}))}/>
           </div>
         </NxCard>
-        <NxCard title="NOISE GATE" active={gateActive} onToggle={()=>setGateActive(v=>!v)} color={NX.red} width={220}>
+
+        {/* Gate */}
+        <NxCard title="NOISE GATE" active={gateActive} onToggle={()=>setGateActive(v=>!v)} color={NX.red} width={230}>
           <div style={{display:"flex",gap:8,justifyContent:"center"}}>
             <NxKnob label="Threshold" value={gate.threshold} min={-80} max={0} unit="dB" color={NX.red} onChange={v=>setGate(g=>({...g,threshold:v}))}/>
             <NxKnob label="Attack" value={gate.attack} min={0.1} max={100} unit="ms" color={NX.red} onChange={v=>setGate(g=>({...g,attack:v}))}/>
@@ -498,23 +675,9 @@ function NexusMixScreen({accentColor}){
             <NxKnob label="Release" value={gate.release} min={10} max={2000} unit="ms" color={NX.red} onChange={v=>setGate(g=>({...g,release:v}))}/>
           </div>
         </NxCard>
-        <NxCard title="PITCH CORRECT" active={pitchActive} onToggle={()=>setPitchActive(v=>!v)} color="#ff9f43" width={195}>
-          <div style={{display:"flex",gap:8,justifyContent:"center"}}>
-            <NxKnob label="Shift" value={pitch.shift} min={-12} max={12} unit="st" color="#ff9f43" onChange={v=>setPitch(p=>({...p,shift:v}))}/>
-            <NxKnob label="Formant" value={pitch.formant} min={-6} max={6} unit="st" color="#ff9f43" onChange={v=>setPitch(p=>({...p,formant:v}))}/>
-            <NxKnob label="Correct" value={pitch.correction} min={0} max={100} unit="%" color="#ff9f43" onChange={v=>setPitch(p=>({...p,correction:v}))}/>
-          </div>
-        </NxCard>
-        <NxCard title="QUANTIZE" active={quantizeActive} onToggle={()=>setQuantizeActive(v=>!v)} color="#54a0ff" width={200}>
-          <div style={{display:"flex",gap:8,justifyContent:"center"}}>
-            <NxKnob label="Strength" value={quantize.strength} min={0} max={100} unit="%" color="#54a0ff" onChange={v=>setQuantize(q=>({...q,strength:v}))}/>
-            <NxKnob label="Swing" value={quantize.swing} min={0} max={100} unit="%" color="#54a0ff" onChange={v=>setQuantize(q=>({...q,swing:v}))}/>
-          </div>
-          <div style={{display:"flex",gap:4,marginTop:8,flexWrap:"wrap"}}>
-            {gridOptions.map(g=><button key={g} onClick={()=>setQuantize(q=>({...q,grid:g}))} style={{background:quantize.grid===g?"#54a0ff22":"transparent",border:`1px solid ${quantize.grid===g?"#54a0ff":NX.border}`,color:quantize.grid===g?"#54a0ff":NX.muted,padding:"2px 7px",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"monospace"}}>{g}</button>)}
-          </div>
-        </NxCard>
-        <NxCard title="SATURATION" active={satActive} onToggle={()=>setSatActive(v=>!v)} color="#f0932b" width={185}>
+
+        {/* Saturation */}
+        <NxCard title="SATURATION" active={satActive} onToggle={()=>setSatActive(v=>!v)} color="#f0932b" width={190}>
           <div style={{display:"flex",gap:8,justifyContent:"center"}}>
             <NxKnob label="Drive" value={saturation.drive} min={0} max={100} unit="%" color="#f0932b" onChange={v=>setSaturation(s=>({...s,drive:v}))}/>
             <NxKnob label="Mix" value={saturation.mix} min={0} max={100} unit="%" color="#f0932b" onChange={v=>setSaturation(s=>({...s,mix:v}))}/>
@@ -523,56 +686,105 @@ function NexusMixScreen({accentColor}){
             {["tape","tube","clip"].map(t=><button key={t} onClick={()=>setSaturation(s=>({...s,type:t}))} style={{flex:1,background:saturation.type===t?"#f0932b22":"transparent",border:`1px solid ${saturation.type===t?"#f0932b":NX.border}`,color:saturation.type===t?"#f0932b":NX.muted,padding:"3px 4px",borderRadius:3,fontSize:9,cursor:"pointer",textTransform:"uppercase"}}>{t}</button>)}
           </div>
         </NxCard>
+
+        {/* Limiter + Stereo */}
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <NxCard title="LIMITER" active={limiterActive} onToggle={()=>setLimiterActive(v=>!v)} color={NX.red} width={175}>
+          <NxCard title="LIMITER" active={limiterActive} onToggle={()=>setLimiterActive(v=>!v)} color={NX.red} width={180}>
             <div style={{display:"flex",gap:8,justifyContent:"center"}}>
               <NxKnob label="Ceiling" value={limiter.ceiling} min={-6} max={0} unit="dBTP" color={NX.red} onChange={v=>setLimiter(l=>({...l,ceiling:v}))}/>
               <NxKnob label="Release" value={limiter.release} min={1} max={500} unit="ms" color={NX.red} onChange={v=>setLimiter(l=>({...l,release:v}))}/>
             </div>
           </NxCard>
-          <NxCard title="STEREO WIDTH" active={true} color={NX.purple} width={175}>
+          <NxCard title="STEREO WIDTH" active={true} color={NX.purple} width={180}>
             <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
               <NxKnob label="Width" value={stereoWidth} min={0} max={200} unit="%" color={NX.purple} onChange={setStereoWidth} size={52}/>
               <div style={{fontSize:9,color:NX.muted}}>{stereoWidth<80?"◄ NARROW":stereoWidth>120?"WIDE ►":"● BALANCED"}</div>
             </div>
           </NxCard>
         </div>
+
+        {/* Master + AI */}
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <NxCard title="MASTER OUT" active={true} color={NX.green} width={150}>
+          <NxCard title="MASTER OUT" active={true} color={NX.green} width={160}>
             <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
               <NxKnob label="Output" value={masterGain} min={-24} max={12} unit="dB" color={NX.green} onChange={setMasterGain} size={58}/>
               <div style={{fontSize:9,color:NX.muted}}>LUFS: <span style={{color:NX.green}}>{isPlaying?`${(-14+masterGain).toFixed(1)}`:"---"}</span></div>
               <div style={{fontSize:9,color:NX.muted}}>Peak: <span style={{color:levels.M>0.9?NX.red:NX.green}}>{isPlaying?`${(20*Math.log10(levels.M+0.001)).toFixed(1)} dB`:"---"}</span></div>
             </div>
           </NxCard>
-          <NxCard title="AI ENGINEER" active={true} color={NX.purple} width={150}>
+          <NxCard title="AI ENGINEER" active={true} color={NX.purple} width={160}>
             <button onClick={handleAIAnalyze} disabled={analyzing} style={{
               width:"100%",background:analyzing?NX.accentDim:`linear-gradient(135deg,${NX.accent}22,${NX.purple}22)`,
               border:`1px solid ${analyzing?NX.accent:NX.purple}`,color:analyzing?NX.accent:NX.purple,
               padding:"8px 6px",borderRadius:4,fontFamily:"monospace",fontSize:10,cursor:analyzing?"wait":"pointer",
-              letterSpacing:1,animation:analyzing?"pulse 1s infinite":"none",boxShadow:`0 0 10px ${NX.purple}33`
+              letterSpacing:1,boxShadow:`0 0 10px ${NX.purple}33`,marginBottom:8,
             }}>{analyzing?"◈ ANALYZING...":"◈ AI ANALYZE"}</button>
+            <div style={{fontSize:9,color:NX.muted,textAlign:"center",lineHeight:1.5}}>
+              Analyze settings &<br/>get 5 suggestions<br/>you can try one by one
+            </div>
           </NxCard>
         </div>
       </div>
+
+      {/* AI Suggestions — individual apply buttons */}
       {suggestions.length>0&&(
-        <div style={{marginTop:12,padding:"10px 14px",background:NX.panel,border:`1px solid ${NX.purple}44`,borderRadius:6}}>
-          <div style={{fontSize:10,color:NX.purple,fontFamily:"monospace",letterSpacing:2,marginBottom:8}}>◈ AI RECOMMENDATIONS</div>
-          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-            {suggestions.map((s,i)=>(
-              <div key={i} style={{background:NX.accentDim,border:`1px solid ${NX.accent}33`,borderRadius:4,padding:"5px 10px",fontSize:11,color:NX.accent,fontFamily:"monospace",lineHeight:1.6,maxWidth:320}}>{s}</div>
-            ))}
+        <div style={{marginTop:12,padding:"12px 14px",background:NX.panel,border:`1px solid ${NX.purple}44`,borderRadius:6}}>
+          <div style={{fontSize:10,color:NX.purple,fontFamily:"monospace",letterSpacing:2,marginBottom:10}}>◈ AI RECOMMENDATIONS — TAP TO APPLY/UNDO EACH</div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {suggestions.map((s,i)=>{
+              const isApplied=!!appliedSuggestions[i];
+              const hasAction=s.action&&s.action!==null;
+              const text=typeof s==="string"?s:s.text;
+              return(
+                <div key={i} style={{
+                  display:"flex",alignItems:"center",gap:10,
+                  padding:"10px 12px",borderRadius:6,
+                  background:isApplied?`${NX.accent}22`:NX.accentDim,
+                  border:`1px solid ${isApplied?NX.accent:NX.border}`,
+                  transition:"all 0.2s",
+                }}>
+                  <div style={{
+                    width:20,height:20,borderRadius:"50%",flexShrink:0,
+                    background:isApplied?NX.accent:"transparent",
+                    border:`2px solid ${isApplied?NX.accent:NX.muted}`,
+                    display:"flex",alignItems:"center",justifyContent:"center",
+                    fontSize:12,color:isApplied?"#000":NX.muted,fontWeight:700,
+                  }}>{isApplied?"✓":(i+1)}</div>
+                  <span style={{flex:1,fontSize:11,color:isApplied?NX.accent:NX.text,fontFamily:"monospace",lineHeight:1.5}}>{text}</span>
+                  {hasAction?(
+                    <button onClick={()=>applySuggestion(s,i)} style={{
+                      background:isApplied?`${NX.accent}33`:`${NX.purple}22`,
+                      border:`1px solid ${isApplied?NX.accent:NX.purple}`,
+                      color:isApplied?NX.accent:NX.purple,
+                      padding:"4px 10px",borderRadius:4,
+                      fontFamily:"monospace",fontSize:10,cursor:"pointer",
+                      whiteSpace:"nowrap",
+                    }}>{isApplied?"↩ UNDO":"▶ APPLY"}</button>
+                  ):(
+                    <span style={{fontSize:9,color:NX.muted,fontStyle:"italic"}}>manual</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div style={{marginTop:8,fontSize:9,color:NX.muted,fontFamily:"monospace"}}>
+            ▸ Apply suggestions one at a time to hear the difference · Tap again to undo · Play audio while applying for instant A/B
           </div>
         </div>
       )}
+
+      {/* Status bar */}
       <div style={{marginTop:10,display:"flex",gap:12,flexWrap:"wrap",alignItems:"center",padding:"5px 0",borderTop:`1px solid ${NX.border}`}}>
         <span style={{fontSize:9,color:NX.muted,fontFamily:"monospace"}}>STATUS: <span style={{color:isPlaying?NX.green:NX.muted}}>{isPlaying?"● PLAYING":"○ STOPPED"}</span></span>
         <span style={{fontSize:9,color:NX.muted,fontFamily:"monospace"}}>EQ:{eqActive?"ON":"OFF"} · COMP:{compActive?"ON":"OFF"} · LIM:{limiterActive?"ON":"OFF"} · VERB:{reverbActive?"ON":"OFF"} · GATE:{gateActive?"ON":"OFF"}</span>
+        {aiMasterActive&&<span style={{fontSize:9,color:NX.purple,fontFamily:"monospace",background:`${NX.purple}22`,padding:"2px 6px",borderRadius:3}}>⚡ AI MASTER ACTIVE</span>}
+        {Object.keys(appliedSuggestions).length>0&&<span style={{fontSize:9,color:NX.accent,fontFamily:"monospace"}}>{Object.keys(appliedSuggestions).length} suggestion(s) applied</span>}
       </div>
     </div>
   );
 }
 
+// ── MAIN APP ────────────────────────────────────────────────────────────────
 export default function App() {
   const [progress,setProgress]=useState(0);
   const [phase,setPhase]=useState("loading");
@@ -592,7 +804,6 @@ export default function App() {
   const [editingProjectSong,setEditingProjectSong]=useState(false);
   const [projectSongValue,setProjectSongValue]=useState("");
   const [draggedIndex,setDraggedIndex]=useState(null);
-  const [draggedSetlist,setDraggedSetlist]=useState(null);
   const [editingIndex,setEditingIndex]=useState(null);
   const [editingValue,setEditingValue]=useState("");
   const [newSection,setNewSection]=useState("");
@@ -645,33 +856,24 @@ export default function App() {
 
   useEffect(()=>{
     if(phase!=="loading")return;
-    const iv=setInterval(()=>{
-      setProgress(p=>{
-        if(p>=100){clearInterval(iv);setTimeout(()=>setPhase("fading"),300);return 100;}
-        return p+1.2;
-      });
-    },30);
+    const iv=setInterval(()=>{setProgress(p=>{if(p>=100){clearInterval(iv);setTimeout(()=>setPhase("fading"),300);return 100;}return p+1.2;});},30);
     return()=>clearInterval(iv);
   },[phase]);
-
-  useEffect(()=>{
-    if(phase==="fading"){const t=setTimeout(()=>setPhase("app"),1200);return()=>clearTimeout(t);}
-  },[phase]);
+  useEffect(()=>{if(phase==="fading"){const t=setTimeout(()=>setPhase("app"),1200);return()=>clearTimeout(t);}},[phase]);
 
   const project=projects.find(p=>p.id===activeProject)||projects[0];
   const song=project?.songs?.[activeTab]||project?.songs?.[0];
   const instruments=project?.instruments||DEFAULT_INSTRUMENTS;
   const isMerge=activeTab===4;
-  const isSetlist=screen==="setlist";
   const isStudio=screen==="studio";
   const isMixer=screen==="mixer";
-  const projectColor=project?.color||accentColor;
-  const C=song?.color?.hex||projectColor;
+  const isSongs=screen==="songs";
   const tracks=project?.studio?.tracks||makeDefaultTracks();
   const AC=accentColor;
 
   const getCurrentBPM=()=>{const p=parseInt(song?.bpm);return isNaN(p)||p<=0?100:p;};
   const getSongColor=(hex)=>hex==="#39ff14"?AC:hex;
+  const C=song?.color?.hex||project?.color||AC;
 
   const T=darkMode?{
     bg:"#000",card:"linear-gradient(145deg,#0a0f0a,#111811)",
@@ -687,113 +889,54 @@ export default function App() {
     headBg:"#eef1f8",border:"rgba(10,22,40,0.1)",checkBg:"#fff",
   };
 
-  const inp=(extra={})=>({
-    background:T.inputBg,border:`1px solid ${T.inputBorder}`,
-    color:T.text,borderRadius:8,padding:"8px 12px",
-    width:"100%",outline:"none",fontSize:13,...extra,
-  });
+  const inp=(extra={})=>({background:T.inputBg,border:`1px solid ${T.inputBorder}`,color:T.text,borderRadius:8,padding:"8px 12px",width:"100%",outline:"none",fontSize:13,...extra});
 
   const updateProject=(id,fn)=>setProjects(prev=>prev.map(p=>p.id===id?{...p,...fn(p)}:p));
   const updateSong=(songId,fn)=>updateProject(project.id,p=>({songs:p.songs.map(s=>s.id===songId?{...s,...fn(s)}:s)}));
-  const updateTrack=(trackId,fn)=>updateProject(project.id,p=>({
-    studio:{...p.studio,tracks:(p.studio?.tracks||makeDefaultTracks()).map(t=>t.id===trackId?{...t,...fn(t)}:t)}
-  }));
+  const updateTrack=(trackId,fn)=>updateProject(project.id,p=>({studio:{...p.studio,tracks:(p.studio?.tracks||makeDefaultTracks()).map(t=>t.id===trackId?{...t,...fn(t)}:t)}}));
 
   const deleteTrack=(trackId)=>{
     stopTrack(trackId);
-    updateProject(project.id,p=>{
-      const remaining=(p.studio?.tracks||makeDefaultTracks()).filter(t=>t.id!==trackId);
-      return{studio:{...p.studio,tracks:remaining}};
-    });
-    setConfirmDelete(null);
-    if(expandedTrack===trackId)setExpandedTrack(null);
+    updateProject(project.id,p=>({studio:{...p.studio,tracks:(p.studio?.tracks||makeDefaultTracks()).filter(t=>t.id!==trackId)}}));
+    setConfirmDelete(null);if(expandedTrack===trackId)setExpandedTrack(null);
   };
-
   const addTrack=()=>{
-    const newId=Date.now();
-    const colorIndex=tracks.length%PROJECT_COLORS.length;
-    const newTrack={id:newId,name:`Track ${tracks.length+1}`,color:PROJECT_COLORS[colorIndex],recordings:[],volume:0.8,muted:false,solo:false,reverb:0,lows:0,mids:0,highs:0,notes:""};
-    updateProject(project.id,p=>({studio:{...p.studio,tracks:[...(p.studio?.tracks||makeDefaultTracks()),newTrack]}}));
+    const newId=Date.now();const colorIndex=tracks.length%PROJECT_COLORS.length;
+    updateProject(project.id,p=>({studio:{...p.studio,tracks:[...(p.studio?.tracks||makeDefaultTracks()),{id:newId,name:`Track ${tracks.length+1}`,color:PROJECT_COLORS[colorIndex],recordings:[],volume:0.8,muted:false,solo:false,reverb:0,lows:0,mids:0,highs:0,notes:""}]}}));
   };
 
   const ckKey=(sn,ci)=>`${sn}--${ci}`;
   const toggleChecked=(sn,ci,songId)=>{
-    const ri=song.sections.indexOf(sn);
-    if(song.locked?.[ri])return;
+    const ri=song.sections.indexOf(sn);if(song.locked?.[ri])return;
     const k=ckKey(sn,ci);
-    updateProject(project.id,p=>{
-      const cur=Array.isArray(p.checks?.[k])?p.checks[k]:[];
-      return{checks:{...p.checks,[k]:cur.includes(songId)?cur.filter(id=>id!==songId):[...cur,songId]}};
-    });
+    updateProject(project.id,p=>{const cur=Array.isArray(p.checks?.[k])?p.checks[k]:[];return{checks:{...p.checks,[k]:cur.includes(songId)?cur.filter(id=>id!==songId):[...cur,songId]}};});
   };
-  const getColors=(sn,ci)=>{
-    const k=ckKey(sn,ci);
-    return(Array.isArray(project.checks?.[k])?project.checks[k]:[]).map(id=>project.songs.find(s=>s.id===id)?.color).filter(Boolean);
-  };
-  const isMine=(sn,ci,songId)=>{
-    const k=ckKey(sn,ci);
-    return Array.isArray(project.checks?.[k])&&project.checks[k].includes(songId);
-  };
+  const getColors=(sn,ci)=>{const k=ckKey(sn,ci);return(Array.isArray(project.checks?.[k])?project.checks[k]:[]).map(id=>project.songs.find(s=>s.id===id)?.color).filter(Boolean);};
+  const isMine=(sn,ci,songId)=>{const k=ckKey(sn,ci);return Array.isArray(project.checks?.[k])&&project.checks[k].includes(songId);};
 
-  const addInstrument=()=>{
-    if(!newInstrument.trim()||instruments.includes(newInstrument.trim()))return;
-    updateProject(project.id,p=>({instruments:[...(p.instruments||DEFAULT_INSTRUMENTS),newInstrument.trim()]}));
-    setNewInstrument("");
-  };
+  const addInstrument=()=>{if(!newInstrument.trim()||instruments.includes(newInstrument.trim()))return;updateProject(project.id,p=>({instruments:[...(p.instruments||DEFAULT_INSTRUMENTS),newInstrument.trim()]}));setNewInstrument("");};
   const removeInstrument=inst=>updateProject(project.id,p=>({instruments:(p.instruments||DEFAULT_INSTRUMENTS).filter(i=>i!==inst)}));
   const toggleLocked=ri=>updateSong(song.id,s=>({locked:{...s.locked,[ri]:!s.locked?.[ri]}}));
   const toggleStarred=ri=>updateSong(song.id,s=>({starred:{...s.starred,[ri]:!s.starred?.[ri]}}));
-  const cycleStatus=ri=>{
-    if(song.locked?.[ri])return;
-    updateSong(song.id,s=>{
-      const cur=s.status?.[ri]||"Draft";
-      return{status:{...s.status,[ri]:STATUS_OPTIONS[(STATUS_OPTIONS.indexOf(cur)+1)%STATUS_OPTIONS.length]}};
-    });
-  };
+  const cycleStatus=ri=>{if(song.locked?.[ri])return;updateSong(song.id,s=>{const cur=s.status?.[ri]||"Draft";return{status:{...s.status,[ri]:STATUS_OPTIONS[(STATUS_OPTIONS.indexOf(cur)+1)%STATUS_OPTIONS.length]}};});};
 
-  const handleLinesTouchStart=(ri,section)=>{
-    setIsDragging(false);
-    const timer=setTimeout(()=>{setIsDragging(true);setDraggedIndex(ri);},400);
-    setLongPressTimer(timer);
-  };
-  const handleLinesTouchEnd=(ri,section)=>{
-    clearTimeout(longPressTimer);
-    if(!isDragging)setSectionNoteOpen(section);
-    setIsDragging(false);
-  };
-  const handleDrop=ti=>{
-    if(draggedIndex===null||song.locked?.[draggedIndex])return;
-    const upd=[...song.sections];const[it]=upd.splice(draggedIndex,1);upd.splice(ti,0,it);
-    updateSong(song.id,()=>({sections:upd}));setDraggedIndex(null);
-  };
+  const handleLinesTouchStart=(ri,section)=>{setIsDragging(false);const timer=setTimeout(()=>{setIsDragging(true);setDraggedIndex(ri);},400);setLongPressTimer(timer);};
+  const handleLinesTouchEnd=(ri,section)=>{clearTimeout(longPressTimer);if(!isDragging)setSectionNoteOpen(section);setIsDragging(false);};
+  const handleDrop=ti=>{if(draggedIndex===null||song.locked?.[draggedIndex])return;const upd=[...song.sections];const[it]=upd.splice(draggedIndex,1);upd.splice(ti,0,it);updateSong(song.id,()=>({sections:upd}));setDraggedIndex(null);};
   const addSection=()=>{if(!newSection.trim())return;updateSong(song.id,s=>({sections:[...s.sections,newSection.trim()]}));setNewSection("");};
   const removeSection=i=>{if(song.locked?.[i])return;updateSong(song.id,s=>({sections:s.sections.filter((_,idx)=>idx!==i)}));};
   const startEdit=i=>{if(song.locked?.[i])return;setEditingIndex(i);setEditingValue(song.sections[i]);};
-  const saveEdit=()=>{
-    if(!editingValue.trim())return;
-    updateSong(song.id,s=>{const u=[...s.sections];u[editingIndex]=editingValue.trim();return{sections:u};});
-    setEditingIndex(null);
-  };
+  const saveEdit=()=>{if(!editingValue.trim())return;updateSong(song.id,s=>{const u=[...s.sections];u[editingIndex]=editingValue.trim();return{sections:u};});setEditingIndex(null);};
 
-  const addProject=()=>{
-    if(!newProjectName.trim())return;
-    const id=Date.now();
-    setProjects(prev=>[...prev,makeProject(id,newProjectName.trim(),AC)]);
-    setActiveProject(id);setNewProjectName("");setMenuOpen(false);setActiveTab(0);
-  };
-  const deleteProject=id=>{
-    if(projects.length===1)return;
-    setProjects(prev=>prev.filter(p=>p.id!==id));
-    if(activeProject===id)setActiveProject(projects[0].id);
-  };
+  const addProject=()=>{if(!newProjectName.trim())return;const id=Date.now();setProjects(prev=>[...prev,makeProject(id,newProjectName.trim(),AC)]);setActiveProject(id);setNewProjectName("");setMenuOpen(false);setActiveTab(0);};
+  const deleteProject=id=>{if(projects.length===1)return;setProjects(prev=>prev.filter(p=>p.id!==id));if(activeProject===id)setActiveProject(projects[0].id);};
   const switchProject=id=>{setActiveProject(id);setMenuOpen(false);setActiveTab(0);setScreen("studio");};
   const saveProjectName=()=>{if(!projectNameValue.trim())return;updateProject(project.id,()=>({name:projectNameValue.trim()}));setEditingProjectName(false);};
   const saveProjectSongName=()=>{if(!projectSongValue.trim())return;updateProject(project.id,()=>({songName:projectSongValue.trim()}));setEditingProjectSong(false);};
   const saveSongName=()=>{if(!songNameValue.trim())return;updateSong(song.id,()=>({name:songNameValue.trim()}));setEditingSongName(false);};
 
   const shareApp=()=>{
-    const url=window.location.origin;
-    const text="🎸 Dog Bones — Song Section Organizer. Open in Chrome then Add to Home Screen!";
+    const url=window.location.origin;const text="🎸 Dog Bones — Song Section Organizer. Open in Chrome then Add to Home Screen!";
     if(navigator.share){navigator.share({title:"Dog Bones",text,url});}
     else{navigator.clipboard.writeText(`${text}\n${url}`).then(()=>{setShareCopied(true);setTimeout(()=>setShareCopied(false),2500);});}
   };
@@ -805,90 +948,46 @@ export default function App() {
   const startRecording=async sn=>{
     try{
       const stream=await navigator.mediaDevices.getUserMedia({audio:true});
-      const mr=new MediaRecorder(stream);
-      audioChunksRef.current=[];
+      const mr=new MediaRecorder(stream);audioChunksRef.current=[];
       mr.ondataavailable=e=>audioChunksRef.current.push(e.data);
       mr.onstop=()=>{
-        const blob=new Blob(audioChunksRef.current,{type:"audio/webm"});
-        const url=URL.createObjectURL(blob);
-        const id=Date.now().toString();const dur=recordingTime;
+        const blob=new Blob(audioChunksRef.current,{type:"audio/webm"});const url=URL.createObjectURL(blob);const id=Date.now().toString();const dur=recordingTime;
         setAudioURLs(prev=>({...prev,[id]:url}));
         const a=document.createElement("a");a.href=url;a.download=`DogBones_${sn}_${id}.webm`;a.click();
         updateSong(song.id,s=>({audioNotes:{...s.audioNotes,[sn]:[...(s.audioNotes?.[sn]||[]),{id,duration:dur,label:`Voice memo ${(s.audioNotes?.[sn]||[]).length+1}`}]}}));
         stream.getTracks().forEach(t=>t.stop());
       };
-      mr.start();mediaRecorderRef.current=mr;
-      setRecording(true);setRecordingTime(0);
+      mr.start();mediaRecorderRef.current=mr;setRecording(true);setRecordingTime(0);
       recordingTimerRef.current=setInterval(()=>setRecordingTime(t=>t+1),1000);
     }catch(e){alert("Microphone access denied.");}
   };
   const stopRecording=()=>{mediaRecorderRef.current?.stop();clearInterval(recordingTimerRef.current);setRecording(false);};
-  const handleFileUpload=(sn,e)=>{
-    const file=e.target.files?.[0];if(!file)return;
-    const url=URL.createObjectURL(file);const id=Date.now().toString();
-    setAudioURLs(prev=>({...prev,[id]:url}));
-    updateSong(song.id,s=>({audioNotes:{...s.audioNotes,[sn]:[...(s.audioNotes?.[sn]||[]),{id,duration:0,label:file.name.replace(/\.[^/.]+$/,"")}]}}));
-    e.target.value="";
-  };
-  const deleteAudioNote=(sn,id)=>{
-    updateSong(song.id,s=>({audioNotes:{...s.audioNotes,[sn]:(s.audioNotes?.[sn]||[]).filter(a=>a.id!==id)}}));
-    setAudioURLs(prev=>{const n={...prev};delete n[id];return n;});
-    if(playingId===id){audioRef.current?.pause();setPlayingId(null);}
-  };
-  const playAudio=id=>{
-    const url=audioURLs[id];
-    if(audioRef.current){audioRef.current.pause();audioRef.current=null;}
-    if(playingId===id){setPlayingId(null);return;}
-    if(!url){alert("Re-record or re-upload after refresh.");return;}
-    const a=new Audio(url);a.play();a.onended=()=>setPlayingId(null);
-    audioRef.current=a;setPlayingId(id);
-  };
+  const handleFileUpload=(sn,e)=>{const file=e.target.files?.[0];if(!file)return;const url=URL.createObjectURL(file);const id=Date.now().toString();setAudioURLs(prev=>({...prev,[id]:url}));updateSong(song.id,s=>({audioNotes:{...s.audioNotes,[sn]:[...(s.audioNotes?.[sn]||[]),{id,duration:0,label:file.name.replace(/\.[^/.]+$/,"")}]}}));e.target.value="";};
+  const deleteAudioNote=(sn,id)=>{updateSong(song.id,s=>({audioNotes:{...s.audioNotes,[sn]:(s.audioNotes?.[sn]||[]).filter(a=>a.id!==id)}}));setAudioURLs(prev=>{const n={...prev};delete n[id];return n;});if(playingId===id){audioRef.current?.pause();setPlayingId(null);}};
+  const playAudio=id=>{const url=audioURLs[id];if(audioRef.current){audioRef.current.pause();audioRef.current=null;}if(playingId===id){setPlayingId(null);return;}if(!url){alert("Re-record or re-upload after refresh.");return;}const a=new Audio(url);a.play();a.onended=()=>setPlayingId(null);audioRef.current=a;setPlayingId(id);};
 
-  const playClick=(ac,time,isAccent)=>{
-    const osc=ac.createOscillator();const gain=ac.createGain();
-    osc.connect(gain);gain.connect(ac.destination);
-    osc.frequency.value=isAccent?1200:800;
-    gain.gain.setValueAtTime(0.8,time);gain.gain.exponentialRampToValueAtTime(0.001,time+0.05);
-    osc.start(time);osc.stop(time+0.06);
-  };
+  const playClick=(ac,time,isAccent)=>{const osc=ac.createOscillator();const gain=ac.createGain();osc.connect(gain);gain.connect(ac.destination);osc.frequency.value=isAccent?1200:800;gain.gain.setValueAtTime(0.8,time);gain.gain.exponentialRampToValueAtTime(0.001,time+0.05);osc.start(time);osc.stop(time+0.06);};
 
   const startCountIn=trackId=>{
-    if(countingIn!==null)return;
-    const bpm=getCurrentBPM();const beatInterval=60/bpm;
-    const ac=new(window.AudioContext||window.webkitAudioContext)();
-    audioCtxRef.current=ac;
+    if(countingIn!==null)return;const bpm=getCurrentBPM();const beatInterval=60/bpm;
+    const ac=new(window.AudioContext||window.webkitAudioContext)();audioCtxRef.current=ac;
     let beat=0;setCountingIn(trackId);setCountBeat(0);
     for(let i=0;i<8;i++)playClick(ac,ac.currentTime+(i*beatInterval),i===0||i===4);
-    countIntervalRef.current=setInterval(()=>{
-      beat++;setCountBeat(beat);
-      if(beat>=8){clearInterval(countIntervalRef.current);setCountingIn(null);setCountBeat(0);setTimeout(()=>{startPlaybackDuringRecording(trackId);startStudioRecording(trackId);},50);}
-    },beatInterval*1000);
+    countIntervalRef.current=setInterval(()=>{beat++;setCountBeat(beat);if(beat>=8){clearInterval(countIntervalRef.current);setCountingIn(null);setCountBeat(0);setTimeout(()=>{startPlaybackDuringRecording(trackId);startStudioRecording(trackId);},50);}},beatInterval*1000);
   };
   const cancelCountIn=()=>{clearInterval(countIntervalRef.current);audioCtxRef.current?.close();setCountingIn(null);setCountBeat(0);};
 
   const buildAudioGraph=async(ac,track,url)=>{
-    const response=await fetch(url);
-    const arrayBuffer=await response.arrayBuffer();
-    const audioBuffer=await ac.decodeAudioData(arrayBuffer);
+    const response=await fetch(url);const arrayBuffer=await response.arrayBuffer();const audioBuffer=await ac.decodeAudioData(arrayBuffer);
     const source=ac.createBufferSource();source.buffer=audioBuffer;
-    const eqOut=applyEQ(ac,source,track);
-    const gainNode=ac.createGain();gainNode.gain.value=track.volume;
-    if(track.reverb>0){
-      const convolver=await createReverbNode(ac,track.reverb);
-      const dryGain=ac.createGain();const wetGain=ac.createGain();
-      dryGain.gain.value=1-track.reverb*0.6;wetGain.gain.value=track.reverb*0.8;
-      eqOut.connect(dryGain);eqOut.connect(convolver);convolver.connect(wetGain);
-      dryGain.connect(gainNode);wetGain.connect(gainNode);
-    }else{eqOut.connect(gainNode);}
-    gainNode.connect(ac.destination);
-    return{source,ac};
+    const eqOut=applyEQ(ac,source,track);const gainNode=ac.createGain();gainNode.gain.value=track.volume;
+    if(track.reverb>0){const convolver=await createReverbNode(ac,track.reverb);const dryGain=ac.createGain();const wetGain=ac.createGain();dryGain.gain.value=1-track.reverb*0.6;wetGain.gain.value=track.reverb*0.8;eqOut.connect(dryGain);eqOut.connect(convolver);convolver.connect(wetGain);dryGain.connect(gainNode);wetGain.connect(gainNode);}
+    else{eqOut.connect(gainNode);}gainNode.connect(ac.destination);return{source,ac};
   };
 
   const startPlaybackDuringRecording=async recordingTrackId=>{
-    playbackAudioNodes.current.forEach(a=>{try{a.pause?.();a.stop?.();}catch{}});
-    playbackAudioNodes.current=[];
-    const ac=new(window.AudioContext||window.webkitAudioContext)();
-    const hasSolo=tracks.some(t=>t.solo&&t.id!==recordingTrackId);
+    playbackAudioNodes.current.forEach(a=>{try{a.pause?.();a.stop?.();}catch{}});playbackAudioNodes.current=[];
+    const ac=new(window.AudioContext||window.webkitAudioContext)();const hasSolo=tracks.some(t=>t.solo&&t.id!==recordingTrackId);
     for(const track of tracks){
       if(track.id===recordingTrackId||track.muted||(hasSolo&&!track.solo))continue;
       const latestRec=track.recordings[track.recordings.length-1];if(!latestRec)continue;
@@ -901,92 +1000,44 @@ export default function App() {
 
   const startStudioRecording=async trackId=>{
     try{
-      const stream=await navigator.mediaDevices.getUserMedia({audio:true});
-      const mr=new MediaRecorder(stream);
-      studioChunksRef.current=[];
+      const stream=await navigator.mediaDevices.getUserMedia({audio:true});const mr=new MediaRecorder(stream);studioChunksRef.current=[];
       mr.ondataavailable=e=>studioChunksRef.current.push(e.data);
       mr.onstop=()=>{
-        stopPlaybackDuringRecording();
-        const blob=new Blob(studioChunksRef.current,{type:"audio/webm"});
-        const url=URL.createObjectURL(blob);
-        const id=Date.now().toString();const dur=studioRecordingTime;
-        const track=tracks.find(t=>t.id===trackId);
+        stopPlaybackDuringRecording();const blob=new Blob(studioChunksRef.current,{type:"audio/webm"});const url=URL.createObjectURL(blob);const id=Date.now().toString();const dur=studioRecordingTime;const track=tracks.find(t=>t.id===trackId);
         setStudioAudioURLs(prev=>({...prev,[id]:url}));
         const a=document.createElement("a");a.href=url;a.download=`DogBones_${track?.name||"track"}_${id}.webm`;a.click();
         updateTrack(trackId,t=>({recordings:[...t.recordings,{id,duration:dur,label:`Take ${t.recordings.length+1}`}]}));
         stream.getTracks().forEach(t=>t.stop());
       };
-      mr.start();studioMediaRef.current=mr;
-      setStudioRecordingTrack(trackId);setStudioRecordingTime(0);
+      mr.start();studioMediaRef.current=mr;setStudioRecordingTrack(trackId);setStudioRecordingTime(0);
       studioTimerRef.current=setInterval(()=>setStudioRecordingTime(t=>t+1),1000);
     }catch(e){alert("Microphone access denied.");}
   };
   const stopStudioRecording=()=>{studioMediaRef.current?.stop();clearInterval(studioTimerRef.current);setStudioRecordingTrack(null);};
 
   const playTrackWithFX=async trackId=>{
-    const track=tracks.find(t=>t.id===trackId);
-    const latestRec=track?.recordings[track.recordings.length-1];
-    if(!latestRec){alert("No recording yet.");return;}
-    const url=studioAudioURLs[latestRec.id];
-    if(!url){alert("Re-upload file to play.");return;}
+    const track=tracks.find(t=>t.id===trackId);const latestRec=track?.recordings[track.recordings.length-1];
+    if(!latestRec){alert("No recording yet.");return;}const url=studioAudioURLs[latestRec.id];if(!url){alert("Re-upload file to play.");return;}
     if(playingTrackId===trackId){trackAudioRefs.current[trackId]?.stop?.();trackAudioRefs.current[trackId]?.pause?.();delete trackAudioRefs.current[trackId];setPlayingTrackId(null);return;}
     if(playingTrackId!==null){trackAudioRefs.current[playingTrackId]?.stop?.();trackAudioRefs.current[playingTrackId]?.pause?.();delete trackAudioRefs.current[playingTrackId];}
-    try{
-      const{source,ac}=await buildAudioGraph(new(window.AudioContext||window.webkitAudioContext)(),track,url);
-      source.start(0);source.onended=()=>{setPlayingTrackId(null);delete trackAudioRefs.current[trackId];};
-      trackAudioRefs.current[trackId]={stop:()=>{source.stop();ac.close();}};setPlayingTrackId(trackId);
-    }catch(e){
-      const a=new Audio(url);a.volume=track.volume;a.play();
-      a.onended=()=>{setPlayingTrackId(null);delete trackAudioRefs.current[trackId];};
-      trackAudioRefs.current[trackId]={pause:()=>{a.pause();a.currentTime=0;}};setPlayingTrackId(trackId);
-    }
+    try{const{source,ac}=await buildAudioGraph(new(window.AudioContext||window.webkitAudioContext)(),track,url);source.start(0);source.onended=()=>{setPlayingTrackId(null);delete trackAudioRefs.current[trackId];};trackAudioRefs.current[trackId]={stop:()=>{source.stop();ac.close();}};setPlayingTrackId(trackId);}
+    catch(e){const a=new Audio(url);a.volume=track.volume;a.play();a.onended=()=>{setPlayingTrackId(null);delete trackAudioRefs.current[trackId];};trackAudioRefs.current[trackId]={pause:()=>{a.pause();a.currentTime=0;}};setPlayingTrackId(trackId);}
   };
-  const stopTrack=trackId=>{
-    trackAudioRefs.current[trackId]?.stop?.();trackAudioRefs.current[trackId]?.pause?.();
-    delete trackAudioRefs.current[trackId];
-    if(playingTrackId===trackId)setPlayingTrackId(null);
-  };
-
-  const handleStudioFileUpload=(trackId,e)=>{
-    const file=e.target.files?.[0];if(!file)return;
-    const url=URL.createObjectURL(file);const id=Date.now().toString();
-    setStudioAudioURLs(prev=>({...prev,[id]:url}));
-    updateTrack(trackId,t=>({recordings:[...t.recordings,{id,duration:0,label:file.name.replace(/\.[^/.]+$/,"")}]}));
-    e.target.value="";
-  };
-  const deleteStudioRecording=(trackId,recId)=>{
-    updateTrack(trackId,t=>({recordings:t.recordings.filter(r=>r.id!==recId)}));
-    setStudioAudioURLs(prev=>{const n={...prev};delete n[recId];return n;});
-    if(playingTrackId===trackId)stopTrack(trackId);
-  };
+  const stopTrack=trackId=>{trackAudioRefs.current[trackId]?.stop?.();trackAudioRefs.current[trackId]?.pause?.();delete trackAudioRefs.current[trackId];if(playingTrackId===trackId)setPlayingTrackId(null);};
+  const handleStudioFileUpload=(trackId,e)=>{const file=e.target.files?.[0];if(!file)return;const url=URL.createObjectURL(file);const id=Date.now().toString();setStudioAudioURLs(prev=>({...prev,[id]:url}));updateTrack(trackId,t=>({recordings:[...t.recordings,{id,duration:0,label:file.name.replace(/\.[^/.]+$/,"")}]}));e.target.value="";};
+  const deleteStudioRecording=(trackId,recId)=>{updateTrack(trackId,t=>({recordings:t.recordings.filter(r=>r.id!==recId)}));setStudioAudioURLs(prev=>{const n={...prev};delete n[recId];return n;});if(playingTrackId===trackId)stopTrack(trackId);};
 
   const playAllTracks=async()=>{
     studioAudioNodes.current.forEach(a=>{try{a.stop?.();a.pause?.();}catch{}});studioAudioNodes.current=[];
-    const hasSolo=tracks.some(t=>t.solo);
-    const ac=new(window.AudioContext||window.webkitAudioContext)();
+    const hasSolo=tracks.some(t=>t.solo);const ac=new(window.AudioContext||window.webkitAudioContext)();
     for(const track of tracks){
-      if(track.muted||(hasSolo&&!track.solo))continue;
-      const latestRec=track.recordings[track.recordings.length-1];if(!latestRec)continue;
-      const url=studioAudioURLs[latestRec.id];if(!url)continue;
+      if(track.muted||(hasSolo&&!track.solo))continue;const latestRec=track.recordings[track.recordings.length-1];if(!latestRec)continue;const url=studioAudioURLs[latestRec.id];if(!url)continue;
       try{const{source}=await buildAudioGraph(ac,track,url);source.start(0);studioAudioNodes.current.push({stop:()=>source.stop()});}
       catch(e){const a=new Audio(url);a.volume=track.volume;a.play().catch(()=>{});studioAudioNodes.current.push(a);}
     }
     setStudioPlaying(true);setTimeout(()=>setStudioPlaying(false),60000);
   };
-  const stopAllTracks=()=>{
-    studioAudioNodes.current.forEach(a=>{try{a.stop?.();a.pause?.();}catch{}});studioAudioNodes.current=[];
-    Object.values(trackAudioRefs.current).forEach(a=>{try{a.stop?.();a.pause?.();}catch{}});trackAudioRefs.current={};
-    stopPlaybackDuringRecording();setStudioPlaying(false);setPlayingTrackId(null);
-  };
-
-  const addToSetlist=n=>updateProject(project.id,p=>({setlist:[...(p.setlist||[]),{id:Date.now(),name:n}]}));
-  const removeFromSetlist=id=>updateProject(project.id,p=>({setlist:p.setlist.filter(s=>s.id!==id)}));
-  const handleSetlistDragStart=i=>setDraggedSetlist(i);
-  const handleSetlistDrop=ti=>{
-    if(draggedSetlist===null)return;
-    const u=[...(project.setlist||[])];const[it]=u.splice(draggedSetlist,1);u.splice(ti,0,it);
-    updateProject(project.id,()=>({setlist:u}));setDraggedSetlist(null);
-  };
+  const stopAllTracks=()=>{studioAudioNodes.current.forEach(a=>{try{a.stop?.();a.pause?.();}catch{}});studioAudioNodes.current=[];Object.values(trackAudioRefs.current).forEach(a=>{try{a.stop?.();a.pause?.();}catch{}});trackAudioRefs.current={};stopPlaybackDuringRecording();setStudioPlaying(false);setPlayingTrackId(null);};
 
   const allSections=[...new Set(project.songs.flatMap(s=>s.sections))];
   const modalHeader=(color)=>({display:"flex",alignItems:"center",gap:10,padding:"14px 16px",borderBottom:`1px solid ${color}44`,background:darkMode?"#0a0f0a":"#f0f4ff"});
@@ -1029,27 +1080,27 @@ export default function App() {
         .tab-scroll::-webkit-scrollbar{display:none;}
         .lines-btn{display:flex;flex-direction:column;gap:3px;padding:6px 8px;border-radius:8px;cursor:pointer;border:none;background:none;flex-shrink:0;}
         .lines-btn .line{width:14px;height:2px;border-radius:1px;}
-        input[type=range]{-webkit-appearance:none;height:4px;background:#1e1e2e;border-radius:2px;outline:none;cursor:pointer;}
-        input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#00e5ff;cursor:pointer;box-shadow:0 0 8px #00e5ff;}
       `}</style>
 
+      {/* DELETE CONFIRM */}
       {confirmDelete&&(
         <div style={{position:"fixed",inset:0,zIndex:9000,background:"rgba(0,0,0,0.8)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
           <div className="confirm-pop" style={{background:darkMode?"#111":"#fff",borderRadius:20,padding:24,maxWidth:300,width:"100%",border:"2px solid #ff4444",boxShadow:"0 0 40px #ff444466"}}>
             <div style={{textAlign:"center",marginBottom:20}}>
               <div style={{fontSize:40,marginBottom:12}}>🗑️</div>
               <h3 style={{color:"#ff4444",fontSize:16,fontWeight:700,margin:"0 0 8px"}}>DELETE TRACK?</h3>
-              <p style={{color:T.subtext,fontSize:13,margin:0,lineHeight:1.5}}>This will permanently delete <strong style={{color:T.text}}>{confirmDelete.name}</strong> and all its recordings.</p>
+              <p style={{color:T.subtext,fontSize:13,margin:0,lineHeight:1.5}}>Permanently delete <strong style={{color:T.text}}>{confirmDelete.name}</strong> and all recordings.</p>
               <p style={{color:"#ff4444",fontSize:11,margin:"8px 0 0"}}>This cannot be undone.</p>
             </div>
             <div style={{display:"flex",gap:10}}>
               <button onClick={()=>setConfirmDelete(null)} style={{flex:1,padding:"12px",borderRadius:12,background:"transparent",border:`1px solid ${T.border}`,color:T.subtext,cursor:"pointer",fontSize:13,fontWeight:700}}>CANCEL</button>
-              <button onClick={()=>deleteTrack(confirmDelete.id)} style={{flex:1,padding:"12px",borderRadius:12,background:"#ff444422",border:"2px solid #ff4444",color:"#ff4444",cursor:"pointer",fontSize:13,fontWeight:700,boxShadow:"0 0 12px #ff444444"}}>DELETE</button>
+              <button onClick={()=>deleteTrack(confirmDelete.id)} style={{flex:1,padding:"12px",borderRadius:12,background:"#ff444422",border:"2px solid #ff4444",color:"#ff4444",cursor:"pointer",fontSize:13,fontWeight:700}}>DELETE</button>
             </div>
           </div>
         </div>
       )}
 
+      {/* SECTION NOTE */}
       {sectionNoteOpen&&song&&(
         <div className="pop-in" style={{position:"fixed",inset:0,zIndex:7500,background:T.bg,display:"flex",flexDirection:"column"}}>
           <div style={modalHeader(AC)}>
@@ -1063,6 +1114,7 @@ export default function App() {
         </div>
       )}
 
+      {/* AUDIO NOTE */}
       {audioNoteOpen&&song&&(
         <div className="pop-in" style={{position:"fixed",inset:0,zIndex:7500,background:T.bg,display:"flex",flexDirection:"column"}}>
           <div style={modalHeader(AC)}>
@@ -1073,20 +1125,13 @@ export default function App() {
           <div style={{flex:1,padding:"20px",overflowY:"auto"}}>
             <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:16,padding:"20px 0",borderBottom:`1px solid ${AC}22`,marginBottom:20}}>
               {recording?(
-                <>
-                  <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    <div className="rec-dot" style={{width:12,height:12,borderRadius:"50%",background:"#ff4444"}}/>
-                    <span style={{color:"#ff4444",fontWeight:700,fontSize:22}}>{fmtTime(recordingTime)}</span>
-                  </div>
-                  <button onClick={stopRecording} style={{background:"#ff444422",border:"2px solid #ff4444",color:"#ff4444",borderRadius:"50%",width:80,height:80,fontSize:28,cursor:"pointer"}}>⏹</button>
-                </>
+                <><div style={{display:"flex",alignItems:"center",gap:8}}><div className="rec-dot" style={{width:12,height:12,borderRadius:"50%",background:"#ff4444"}}/><span style={{color:"#ff4444",fontWeight:700,fontSize:22}}>{fmtTime(recordingTime)}</span></div>
+                <button onClick={stopRecording} style={{background:"#ff444422",border:"2px solid #ff4444",color:"#ff4444",borderRadius:"50%",width:80,height:80,fontSize:28,cursor:"pointer"}}>⏹</button></>
               ):(
-                <>
-                  <button onClick={()=>startRecording(audioNoteOpen)} style={{background:`${AC}22`,border:`2px solid ${AC}`,color:AC,borderRadius:"50%",width:80,height:80,fontSize:32,cursor:"pointer",boxShadow:`0 0 24px ${AC}44`}}>🎙️</button>
-                  <span style={{color:AC,fontSize:11,letterSpacing:"0.1em"}}>TAP TO RECORD</span>
-                  <input ref={fileInputRef} type="file" accept="audio/*" style={{display:"none"}} onChange={e=>handleFileUpload(audioNoteOpen,e)}/>
-                  <button onClick={()=>fileInputRef.current?.click()} style={{width:"100%",padding:"10px",borderRadius:10,background:`${AC}11`,border:`1px solid ${AC}44`,color:AC,cursor:"pointer",fontSize:12,fontWeight:700}}>📁 UPLOAD FROM FILES</button>
-                </>
+                <><button onClick={()=>startRecording(audioNoteOpen)} style={{background:`${AC}22`,border:`2px solid ${AC}`,color:AC,borderRadius:"50%",width:80,height:80,fontSize:32,cursor:"pointer",boxShadow:`0 0 24px ${AC}44`}}>🎙️</button>
+                <span style={{color:AC,fontSize:11,letterSpacing:"0.1em"}}>TAP TO RECORD</span>
+                <input ref={fileInputRef} type="file" accept="audio/*" style={{display:"none"}} onChange={e=>handleFileUpload(audioNoteOpen,e)}/>
+                <button onClick={()=>fileInputRef.current?.click()} style={{width:"100%",padding:"10px",borderRadius:10,background:`${AC}11`,border:`1px solid ${AC}44`,color:AC,cursor:"pointer",fontSize:12,fontWeight:700}}>📁 UPLOAD FROM FILES</button></>
               )}
             </div>
             {getAudioNotes(audioNoteOpen).map(a=>(
@@ -1100,6 +1145,7 @@ export default function App() {
         </div>
       )}
 
+      {/* NOTES FULLSCREEN */}
       {notesOpen&&song&&(
         <div className="pop-in" style={{position:"fixed",inset:0,zIndex:7000,background:T.bg,display:"flex",flexDirection:"column"}}>
           <div style={modalHeader(AC)}>
@@ -1108,18 +1154,14 @@ export default function App() {
             <button onClick={()=>setNotesOpen(false)} style={doneBtn(AC)}>↙ COLLAPSE</button>
           </div>
           <textarea style={{flex:1,resize:"none",fontFamily:"monospace",fontSize:14,border:"none",padding:"20px",lineHeight:1.7,background:T.bg,color:T.text,outline:"none"}}
-            placeholder="Session notes..." value={song.notes}
-            onChange={e=>updateSong(song.id,()=>({notes:e.target.value}))} autoFocus/>
+            placeholder="Session notes..." value={song.notes} onChange={e=>updateSong(song.id,()=>({notes:e.target.value}))} autoFocus/>
         </div>
       )}
 
+      {/* MENU */}
       {menuOpen&&(
         <div style={{position:"fixed",inset:0,zIndex:8000}} onClick={()=>setMenuOpen(false)}>
-          <div className="menu-panel" onClick={e=>e.stopPropagation()} style={{
-            position:"absolute",top:0,left:0,bottom:0,width:"82%",maxWidth:320,
-            background:darkMode?"#080d08":"#ffffff",borderRight:`1px solid ${AC}44`,
-            display:"flex",flexDirection:"column",overflow:"hidden",
-          }}>
+          <div className="menu-panel" onClick={e=>e.stopPropagation()} style={{position:"absolute",top:0,left:0,bottom:0,width:"82%",maxWidth:320,background:darkMode?"#080d08":"#ffffff",borderRight:`1px solid ${AC}44`,display:"flex",flexDirection:"column",overflow:"hidden"}}>
             <div style={{padding:"20px 16px 12px",borderBottom:`1px solid ${AC}33`,background:darkMode?"#0a0f0a":"#f0f4ff"}}>
               <img src={LOGO_TEXT} alt="Dog Bones" style={{width:"100%",maxWidth:200,height:40,objectFit:"cover",objectPosition:"center",mixBlendMode:"screen",display:"block",marginBottom:4}}/>
               <p style={{color:`${AC}88`,fontSize:9,letterSpacing:"0.3em",margin:0}}>PROJECTS</p>
@@ -1139,25 +1181,15 @@ export default function App() {
             <div style={{padding:"12px 16px",borderTop:`1px solid ${AC}22`,background:darkMode?"#0a0f0a":"#f0f4ff"}}>
               <p style={{color:T.subtext,fontSize:10,letterSpacing:"0.2em",marginBottom:8}}>NEW PROJECT</p>
               <div style={{display:"flex",gap:8}}>
-                <input style={inp({fontSize:12})} placeholder="Project name..." value={newProjectName}
-                  onChange={e=>setNewProjectName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addProject()}/>
+                <input style={inp({fontSize:12})} placeholder="Project name..." value={newProjectName} onChange={e=>setNewProjectName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addProject()}/>
                 <button onClick={addProject} style={{background:`${AC}22`,border:`1px solid ${AC}66`,color:AC,borderRadius:8,padding:"6px 12px",cursor:"pointer",fontSize:13,fontWeight:700,whiteSpace:"nowrap"}}>+ ADD</button>
               </div>
             </div>
             <div style={{padding:"12px 16px",borderTop:`1px solid ${AC}22`,display:"flex",flexDirection:"column",gap:8}}>
-              {[
-                {label:"🎛️ STUDIO",val:"studio"},
-                {label:"🎵 SONG ARRANGER",val:"songs"},
-                {label:"📋 SETLIST BUILDER",val:"setlist"},
-                {label:"🎚️ MIX & MASTER",val:"mixer"},
-              ].map(({label,val})=>(
-                <button key={val} onClick={()=>{setScreen(val);setMenuOpen(false);}} style={{
-                  background:screen===val?`${val==="mixer"?"#00e5ff":AC}22`:"transparent",
-                  border:`1px solid ${screen===val?(val==="mixer"?"#00e5ff":AC)+"66":"rgba(128,128,128,0.2)"}`,
-                  color:screen===val?(val==="mixer"?"#00e5ff":AC):T.subtext,
-                  borderRadius:8,padding:"8px 12px",cursor:"pointer",fontSize:12,fontWeight:700,letterSpacing:"0.1em",textAlign:"left",
-                  boxShadow:screen===val&&val==="mixer"?"0 0 12px #00e5ff33":"none",
-                }}>{label}{val==="mixer"&&<span style={{fontSize:9,marginLeft:6,color:"#00e5ff88",background:"#00e5ff11",border:"1px solid #00e5ff33",borderRadius:3,padding:"1px 5px",letterSpacing:1}}>AI</span>}</button>
+              {[{label:"🎛️ STUDIO",val:"studio"},{label:"🎵 SONG ARRANGER",val:"songs"},{label:"🎚️ MIX & MASTER",val:"mixer"}].map(({label,val})=>(
+                <button key={val} onClick={()=>{setScreen(val);setMenuOpen(false);}} style={{background:screen===val?`${val==="mixer"?"#00e5ff":AC}22`:"transparent",border:`1px solid ${screen===val?(val==="mixer"?"#00e5ff":AC)+"66":"rgba(128,128,128,0.2)"}`,color:screen===val?(val==="mixer"?"#00e5ff":AC):T.subtext,borderRadius:8,padding:"8px 12px",cursor:"pointer",fontSize:12,fontWeight:700,letterSpacing:"0.1em",textAlign:"left",boxShadow:screen===val&&val==="mixer"?"0 0 12px #00e5ff33":"none"}}>
+                  {label}{val==="mixer"&&<span style={{fontSize:9,marginLeft:6,color:"#00e5ff88",background:"#00e5ff11",border:"1px solid #00e5ff33",borderRadius:3,padding:"1px 5px",letterSpacing:1}}>AI</span>}
+                </button>
               ))}
               <button onClick={()=>setDarkMode(!darkMode)} style={{background:darkMode?"rgba(255,238,0,0.08)":"rgba(10,22,40,0.05)",border:`1px solid ${darkMode?"rgba(255,238,0,0.3)":"rgba(10,22,40,0.15)"}`,color:darkMode?"#ffee00":"#0a1628",borderRadius:8,padding:"8px 12px",cursor:"pointer",fontSize:12,fontWeight:700,letterSpacing:"0.1em",textAlign:"left"}}>{darkMode?"☀️ LIGHT MODE":"🌙 DARK MODE"}</button>
               <button onClick={shareApp} style={{background:shareCopied?`${AC}33`:`${AC}11`,border:`1px solid ${AC}66`,color:AC,borderRadius:8,padding:"8px 12px",cursor:"pointer",fontSize:12,fontWeight:700,letterSpacing:"0.1em",textAlign:"left",transition:"all 0.2s"}}>{shareCopied?"✅ LINK COPIED!":"📤 SHARE APP WITH BAND"}</button>
@@ -1169,19 +1201,16 @@ export default function App() {
 
       <div style={{minHeight:"100vh",background:isMixer?"#0a0a0f":T.bg,color:T.text,transition:"background 0.3s"}}>
         <div style={{maxWidth:1200,margin:"0 auto",padding:"12px"}}>
+
+          {/* TOP BAR */}
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,padding:"10px 14px",borderRadius:14,background:isMixer?"#111118":T.card,border:`1px solid ${isMixer?"#1e1e2e":AC+"44"}`}}>
             <button onClick={()=>setMenuOpen(true)} style={{background:"none",border:"none",cursor:"pointer",padding:"4px 6px",borderRadius:8,flexShrink:0}}>
-              <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                {[0,1,2].map(i=><div key={i} style={{width:20,height:2,borderRadius:1,background:isMixer?"#00e5ff":AC,boxShadow:`0 0 4px ${isMixer?"#00e5ff":AC}`}}/>)}
-              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:4}}>{[0,1,2].map(i=><div key={i} style={{width:20,height:2,borderRadius:1,background:isMixer?"#00e5ff":AC,boxShadow:`0 0 4px ${isMixer?"#00e5ff":AC}`}}/>)}</div>
             </button>
             <img src={LOGO_TEXT} alt="Dog Bones" style={{height:36,objectFit:"contain",mixBlendMode:darkMode?"screen":"multiply",flexShrink:0}}/>
             <div style={{flex:1,overflow:"hidden"}}>
               {isMixer?(
-                <div>
-                  <div style={{fontFamily:"monospace",fontSize:14,color:"#00e5ff",letterSpacing:3,textShadow:"0 0 12px #00e5ff"}}>◈ NEXUS MIX</div>
-                  <div style={{fontSize:10,color:"#5a5a7a",letterSpacing:2}}>AI MIX & MASTER</div>
-                </div>
+                <div><div style={{fontFamily:"monospace",fontSize:14,color:"#00e5ff",letterSpacing:3,textShadow:"0 0 12px #00e5ff"}}>◈ NEXUS MIX</div><div style={{fontSize:10,color:"#5a5a7a",letterSpacing:2}}>AI MIX & MASTER</div></div>
               ):editingProjectName?(
                 <div style={{display:"flex",gap:4}}>
                   <input style={inp({padding:"4px 8px",fontSize:12,borderColor:`${AC}66`})} value={projectNameValue} onChange={e=>setProjectNameValue(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveProjectName()} autoFocus/>
@@ -1237,22 +1266,19 @@ export default function App() {
             </div>
           </div>
 
+          {/* MIXER */}
           {isMixer&&<NexusMixScreen accentColor={accentColor}/>}
 
+          {/* STUDIO */}
           {isStudio&&(
             <div>
               <div style={{padding:"14px 16px",borderRadius:14,marginBottom:12,background:T.card,border:`1px solid ${AC}44`}}>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                  <div>
-                    <h2 style={{color:AC,fontSize:18,fontWeight:700,margin:0}}>🎛️ STUDIO</h2>
-                    <p style={{color:T.subtext,fontSize:10,margin:"2px 0 0"}}>{project?.name?.toUpperCase()} — {song?.bpm?`${song.bpm} BPM`:"SET BPM IN SONG ARRANGER"}</p>
-                  </div>
-                  <div style={{display:"flex",gap:8}}>
-                    <button onClick={studioPlaying?stopAllTracks:playAllTracks} style={{background:studioPlaying?"#ff444422":`${AC}22`,border:`2px solid ${studioPlaying?"#ff4444":AC}`,color:studioPlaying?"#ff4444":AC,borderRadius:10,padding:"8px 14px",cursor:"pointer",fontSize:12,fontWeight:700}}>{studioPlaying?"⏹ STOP ALL":"▶ PLAY ALL"}</button>
-                  </div>
+                  <div><h2 style={{color:AC,fontSize:18,fontWeight:700,margin:0}}>🎛️ STUDIO</h2><p style={{color:T.subtext,fontSize:10,margin:"2px 0 0"}}>{project?.name?.toUpperCase()} — {song?.bpm?`${song.bpm} BPM`:"SET BPM IN SONG ARRANGER"}</p></div>
+                  <button onClick={studioPlaying?stopAllTracks:playAllTracks} style={{background:studioPlaying?"#ff444422":`${AC}22`,border:`2px solid ${studioPlaying?"#ff4444":AC}`,color:studioPlaying?"#ff4444":AC,borderRadius:10,padding:"8px 14px",cursor:"pointer",fontSize:12,fontWeight:700}}>{studioPlaying?"⏹ STOP ALL":"▶ PLAY ALL"}</button>
                 </div>
                 <div style={{padding:"8px 12px",borderRadius:10,background:`${AC}08`,border:`1px solid ${AC}22`}}>
-                  <p style={{color:T.subtext,fontSize:10,margin:0,lineHeight:1.6}}><span style={{color:AC,fontWeight:700}}>BAND WORKFLOW: </span>Record → Downloads → text .webm to bandmate → they upload → record while hearing yours</p>
+                  <p style={{color:T.subtext,fontSize:10,margin:0,lineHeight:1.6}}><span style={{color:AC,fontWeight:700}}>BAND WORKFLOW: </span>Record → Downloads → text .webm to bandmate → they upload → record while hearing yours · <span style={{color:AC}}>Menu → 🎚️ MIX & MASTER for AI mastering + WAV export</span></p>
                 </div>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:8}}>
@@ -1262,8 +1288,7 @@ export default function App() {
                   const isPlayingThis=playingTrackId===track.id;
                   const latestRec=track.recordings[track.recordings.length-1];
                   const hasAudio=latestRec&&studioAudioURLs[latestRec.id];
-                  const TC=track.color;
-                  const isExpanded=expandedTrack===track.id;
+                  const TC=track.color;const isExpanded=expandedTrack===track.id;
                   return(
                     <div key={track.id} style={{borderRadius:14,overflow:"hidden",border:`1px solid ${TC}${track.muted?"22":"55"}`,background:T.card,opacity:track.muted?0.7:1,transition:"all 0.2s",boxShadow:isRecordingThis?`0 0 20px ${TC}66`:isCountingInThis?`0 0 20px #ffee0066`:"none"}}>
                       <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 12px",background:`${TC}11`}}>
@@ -1283,11 +1308,7 @@ export default function App() {
                         ):(
                           <span onClick={()=>{setEditingTrackName(track.id);setTrackNameValue(track.name);}} style={{color:TC,fontWeight:700,fontSize:13,flex:1,cursor:"pointer"}}>{track.name}</span>
                         )}
-                        {isCountingInThis&&(
-                          <div style={{display:"flex",gap:3,alignItems:"center"}}>
-                            {[1,2,3,4,5,6,7,8].map(b=><div key={b} style={{width:b<=countBeat?8:5,height:b<=countBeat?8:5,borderRadius:"50%",background:b===1||b===5?"#ffee00":b<=countBeat?TC:"rgba(255,255,255,0.15)",transition:"all 0.05s"}}/>)}
-                          </div>
-                        )}
+                        {isCountingInThis&&<div style={{display:"flex",gap:3,alignItems:"center"}}>{[1,2,3,4,5,6,7,8].map(b=><div key={b} style={{width:b<=countBeat?8:5,height:b<=countBeat?8:5,borderRadius:"50%",background:b===1||b===5?"#ffee00":b<=countBeat?TC:"rgba(255,255,255,0.15)",transition:"all 0.05s"}}/>)}</div>}
                         {isRecordingThis&&<div style={{display:"flex",alignItems:"center",gap:4}}><div className="rec-dot" style={{width:8,height:8,borderRadius:"50%",background:"#ff4444"}}/><span style={{color:"#ff4444",fontSize:11,fontWeight:700}}>{fmtTime(studioRecordingTime)}</span></div>}
                         {track.muted&&<span style={{color:"#ff4444",fontSize:9,fontWeight:700,background:"#ff444422",border:"1px solid #ff444466",borderRadius:4,padding:"1px 5px"}}>MUTE</span>}
                         {track.solo&&<span style={{color:TC,fontSize:9,fontWeight:700,background:`${TC}22`,border:`1px solid ${TC}66`,borderRadius:4,padding:"1px 5px"}}>SOLO</span>}
@@ -1295,13 +1316,9 @@ export default function App() {
                         <button onClick={()=>setExpandedTrack(isExpanded?null:track.id)} style={{background:isExpanded?`${TC}22`:"transparent",border:`1px solid ${TC}${isExpanded?"66":"33"}`,color:TC,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:11,fontWeight:700}}>{isExpanded?"▲":"▼"}</button>
                       </div>
                       <div style={{height:30,background:darkMode?"#050a05":"#f0f4f0",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",gap:2,padding:"0 12px",borderTop:`1px solid ${TC}22`,borderBottom:isExpanded?`1px solid ${TC}22`:"none"}}>
-                        {isRecordingThis||isCountingInThis?(
-                          [...Array(24)].map((_,i)=><div key={i} style={{width:3,borderRadius:2,background:isCountingInThis?"#ffee00":TC,animation:`vuPulse ${0.3+Math.random()*0.5}s ease-in-out infinite`,animationDelay:`${i*0.04}s`,minHeight:3}}/>)
-                        ):latestRec?(
-                          [...Array(24)].map((_,i)=><div key={i} style={{width:3,borderRadius:2,height:`${15+Math.sin(i*0.8)*40+Math.cos(i*1.3)*20}%`,background:`${TC}${hasAudio?"bb":"33"}`}}/>)
-                        ):(
-                          <span style={{color:T.subtext,fontSize:10}}>No recording — tap REC</span>
-                        )}
+                        {isRecordingThis||isCountingInThis?([...Array(24)].map((_,i)=><div key={i} style={{width:3,borderRadius:2,background:isCountingInThis?"#ffee00":TC,animation:`vuPulse ${0.3+Math.random()*0.5}s ease-in-out infinite`,animationDelay:`${i*0.04}s`,minHeight:3}}/>))
+                        :latestRec?([...Array(24)].map((_,i)=><div key={i} style={{width:3,borderRadius:2,height:`${15+Math.sin(i*0.8)*40+Math.cos(i*1.3)*20}%`,background:`${TC}${hasAudio?"bb":"33"}`}}/>))
+                        :(<span style={{color:T.subtext,fontSize:10}}>No recording — tap REC</span>)}
                       </div>
                       <div style={{display:"flex",gap:6,padding:"10px 12px",borderBottom:isExpanded?`1px solid ${TC}22`:"none"}}>
                         <button onClick={()=>playTrackWithFX(track.id)} disabled={!latestRec} style={{flex:1,padding:"9px 4px",borderRadius:10,background:isPlayingThis?`${TC}33`:`${TC}11`,border:`1px solid ${TC}${isPlayingThis?"99":"44"}`,color:!latestRec?T.subtext:TC,cursor:!latestRec?"not-allowed":"pointer",fontSize:11,fontWeight:700}}>{isPlayingThis?"⏸ PAUSE":"▶ PLAY"}</button>
@@ -1356,41 +1373,11 @@ export default function App() {
               </div>
               <button onClick={addTrack} style={{width:"100%",marginTop:10,padding:"12px",borderRadius:14,background:`${AC}11`,border:`2px dashed ${AC}44`,color:AC,cursor:"pointer",fontSize:13,fontWeight:700,letterSpacing:"0.1em"}}>+ ADD TRACK</button>
               <input ref={studioFileInputRef} type="file" accept="audio/*" style={{display:"none"}} onChange={e=>{if(studioFileTrackId.current!==null){handleStudioFileUpload(studioFileTrackId.current,e);studioFileTrackId.current=null;}}}/>
-              <div style={{marginTop:12,padding:"12px 14px",borderRadius:12,background:T.cardBg,border:`1px solid ${T.border}`}}>
-                <p style={{color:T.subtext,fontSize:10,lineHeight:1.8,margin:0}}>
-                  <span style={{color:AC}}>▸</span> 🗑️ in header = delete entire track &nbsp;
-                  <span style={{color:AC}}>▸</span> 🔄 inside ▼ = reset data, keep track &nbsp;
-                  <span style={{color:AC}}>▸</span> + ADD TRACK = add a new blank track
-                </p>
-              </div>
             </div>
           )}
 
-          {isSetlist&&(
-            <div style={{padding:"16px",borderRadius:14,background:T.card,border:`1px solid ${AC}44`}}>
-              <h2 style={{color:AC,fontSize:16,fontWeight:700,letterSpacing:"0.1em",marginBottom:4}}>📋 SETLIST BUILDER</h2>
-              <p style={{color:T.subtext,fontSize:11,letterSpacing:"0.15em",marginBottom:16}}>DRAG TO REORDER</p>
-              <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:16}}>
-                {project.songs.map(s=><button key={s.id} onClick={()=>addToSetlist(s.name)} style={{background:`${s.color.hex}22`,border:`1px solid ${s.color.hex}66`,color:s.color.hex,borderRadius:8,padding:"6px 12px",cursor:"pointer",fontSize:12,fontWeight:700}}>+ {s.name}</button>)}
-              </div>
-              {(project.setlist||[]).length===0?(
-                <p style={{color:T.subtext,fontSize:12,textAlign:"center",padding:"20px 0"}}>Tap a song above to add to setlist</p>
-              ):(
-                <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                  {(project.setlist||[]).map((item,index)=>(
-                    <div key={item.id} draggable onDragStart={()=>handleSetlistDragStart(index)} onDragOver={e=>e.preventDefault()} onDrop={()=>handleSetlistDrop(index)} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",borderRadius:10,background:T.cardBg,border:`1px solid ${AC}33`,cursor:"grab",opacity:draggedSetlist===index?0.4:1}}>
-                      <span style={{color:`${AC}66`,fontSize:16}}>☰</span>
-                      <span style={{color:AC,fontWeight:700,fontSize:14,width:28}}>{index+1}.</span>
-                      <span style={{flex:1,color:T.text,fontSize:13}}>{item.name}</span>
-                      <button className="icon-btn" onClick={()=>removeFromSetlist(item.id)} style={{color:"#ff4444"}}>🗑️</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {!isStudio&&!isSetlist&&!isMixer&&(
+          {/* SONG ARRANGER */}
+          {isSongs&&(
             <div>
               <div className="tab-scroll" style={{marginBottom:12}}>
                 {project.songs.map((s,i)=>(
@@ -1398,42 +1385,26 @@ export default function App() {
                 ))}
                 <button onClick={()=>setActiveTab(4)} style={{flex:"0 0 auto",padding:"7px 12px",borderRadius:10,border:`1px solid ${activeTab===4?T.text:"rgba(128,128,128,0.2)"}`,background:activeTab===4?darkMode?"rgba(255,255,255,0.1)":"rgba(10,22,40,0.08)":"transparent",color:activeTab===4?T.text:T.subtext,fontSize:11,fontWeight:700,cursor:"pointer",transition:"all 0.2s"}}>⚡ MERGE</button>
               </div>
+
               {isMerge?(
                 <div>
                   <div style={{padding:"14px 16px",borderRadius:14,marginBottom:12,background:T.card,border:`1px solid ${T.border}`}}>
                     <h2 style={{color:T.text,fontSize:16,fontWeight:700,marginBottom:4}}>⚡ MERGE VIEW</h2>
                     <p style={{color:T.subtext,fontSize:10,letterSpacing:"0.15em",marginBottom:10}}>COLOR = WHICH SONG CLAIMED THIS PART</p>
-                    <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-                      {project.songs.map(s=><div key={s.id} style={{display:"flex",alignItems:"center",gap:5}}><div style={{width:10,height:10,borderRadius:3,background:getSongColor(s.color.hex)}}/><span style={{color:getSongColor(s.color.hex),fontSize:11,fontWeight:700}}>{s.name}</span></div>)}
-                    </div>
+                    <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>{project.songs.map(s=><div key={s.id} style={{display:"flex",alignItems:"center",gap:5}}><div style={{width:10,height:10,borderRadius:3,background:getSongColor(s.color.hex)}}/><span style={{color:getSongColor(s.color.hex),fontSize:11,fontWeight:700}}>{s.name}</span></div>)}</div>
                   </div>
                   <div className="table-wrap" style={{border:`1px solid ${T.border}`}}>
                     <table className="section-table">
-                      <thead>
-                        <tr style={{background:T.headBg}}>
-                          <th className="sticky-col-head" style={{padding:"10px 12px",borderBottom:`1px solid ${T.border}`,textAlign:"left",fontSize:10,color:T.subtext,minWidth:160,background:T.headBg}}>SECTION</th>
-                          {instruments.map(inst=><th key={inst} style={{padding:"10px 8px",borderBottom:`1px solid ${T.border}`,textAlign:"center",fontSize:9,color:T.subtext,minWidth:72,whiteSpace:"nowrap"}}>{inst.toUpperCase()}</th>)}
+                      <thead><tr style={{background:T.headBg}}>
+                        <th className="sticky-col-head" style={{padding:"10px 12px",borderBottom:`1px solid ${T.border}`,textAlign:"left",fontSize:10,color:T.subtext,minWidth:160,background:T.headBg}}>SECTION</th>
+                        {instruments.map(inst=><th key={inst} style={{padding:"10px 8px",borderBottom:`1px solid ${T.border}`,textAlign:"center",fontSize:9,color:T.subtext,minWidth:72,whiteSpace:"nowrap"}}>{inst.toUpperCase()}</th>)}
+                      </tr></thead>
+                      <tbody>{allSections.map(section=>(
+                        <tr key={section} style={{borderBottom:`1px solid ${T.border}`}}>
+                          <td className="sticky-col" style={{padding:"9px 12px",fontSize:11,color:T.text,fontWeight:600,minWidth:160,background:T.stickyBg}}>{section}</td>
+                          {instruments.map((_,ci)=>{const colors=getColors(section,ci);return(<td key={ci} style={{padding:"8px",textAlign:"center"}}>{colors.length===0?<div style={{width:18,height:18,margin:"0 auto",border:`2px solid ${T.border}`,borderRadius:4}}/>:<div style={{display:"flex",gap:2,justifyContent:"center",flexWrap:"wrap"}}>{colors.map((c,i)=><div key={i} style={{width:14,height:14,borderRadius:3,background:getSongColor(c.hex),boxShadow:`0 0 5px ${getSongColor(c.hex)}88`}}/>)}</div>}</td>);})}
                         </tr>
-                      </thead>
-                      <tbody>
-                        {allSections.map(section=>(
-                          <tr key={section} style={{borderBottom:`1px solid ${T.border}`}}>
-                            <td className="sticky-col" style={{padding:"9px 12px",fontSize:11,color:T.text,fontWeight:600,minWidth:160,background:T.stickyBg}}>{section}</td>
-                            {instruments.map((_,ci)=>{
-                              const colors=getColors(section,ci);
-                              return(
-                                <td key={ci} style={{padding:"8px",textAlign:"center"}}>
-                                  {colors.length===0?<div style={{width:18,height:18,margin:"0 auto",border:`2px solid ${T.border}`,borderRadius:4}}/>:(
-                                    <div style={{display:"flex",gap:2,justifyContent:"center",flexWrap:"wrap"}}>
-                                      {colors.map((c,i)=><div key={i} style={{width:14,height:14,borderRadius:3,background:getSongColor(c.hex),boxShadow:`0 0 5px ${getSongColor(c.hex)}88`}}/>)}
-                                    </div>
-                                  )}
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        ))}
-                      </tbody>
+                      ))}</tbody>
                     </table>
                   </div>
                 </div>
@@ -1441,11 +1412,8 @@ export default function App() {
                 <div>
                   <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,padding:"10px 14px",borderRadius:12,background:T.card,border:`1px solid ${getSongColor(C)}44`}}>
                     <div style={{width:8,height:8,borderRadius:"50%",background:getSongColor(C),flexShrink:0,boxShadow:`0 0 6px ${getSongColor(C)}`}}/>
-                    {editingSongName?(
-                      <><input style={inp({borderColor:`${getSongColor(C)}66`,fontSize:13})} value={songNameValue} onChange={e=>setSongNameValue(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveSongName()} autoFocus/><button className="icon-btn" onClick={saveSongName} style={{color:getSongColor(C)}}>✓</button><button className="icon-btn" onClick={()=>setEditingSongName(false)} style={{color:T.subtext}}>✕</button></>
-                    ):(
-                      <><span style={{color:getSongColor(C),fontWeight:700,fontSize:14,flex:1}}>{song.name}</span><button className="icon-btn" onClick={()=>{setEditingSongName(true);setSongNameValue(song.name);}} style={{color:`${getSongColor(C)}88`}}>✏️</button></>
-                    )}
+                    {editingSongName?(<><input style={inp({borderColor:`${getSongColor(C)}66`,fontSize:13})} value={songNameValue} onChange={e=>setSongNameValue(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveSongName()} autoFocus/><button className="icon-btn" onClick={saveSongName} style={{color:getSongColor(C)}}>✓</button><button className="icon-btn" onClick={()=>setEditingSongName(false)} style={{color:T.subtext}}>✕</button></>)
+                    :(<><span style={{color:getSongColor(C),fontWeight:700,fontSize:14,flex:1}}>{song.name}</span><button className="icon-btn" onClick={()=>{setEditingSongName(true);setSongNameValue(song.name);}} style={{color:`${getSongColor(C)}88`}}>✏️</button></>)}
                   </div>
                   <div style={{display:"flex",gap:8,marginBottom:10}}>
                     <div style={{flex:1,display:"flex",gap:8,padding:"10px 14px",borderRadius:12,background:T.card,border:`1px solid ${getSongColor(C)}33`}}>
@@ -1464,14 +1432,7 @@ export default function App() {
                         <input style={inp({borderColor:`${AC}33`,fontSize:12})} placeholder="New instrument..." value={newInstrument} onChange={e=>setNewInstrument(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addInstrument()}/>
                         <button onClick={addInstrument} style={{background:`${AC}22`,border:`1px solid ${AC}66`,color:AC,borderRadius:8,padding:"6px 12px",cursor:"pointer",fontSize:12,fontWeight:700,whiteSpace:"nowrap"}}>+ ADD</button>
                       </div>
-                      <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-                        {instruments.map(inst=>(
-                          <div key={inst} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:8,background:`${AC}11`,border:`1px solid ${AC}33`}}>
-                            <span style={{color:T.text,fontSize:12}}>{inst}</span>
-                            <button className="icon-btn" onClick={()=>removeInstrument(inst)} style={{color:"#ff4444",fontSize:11,padding:"0 2px"}}>✕</button>
-                          </div>
-                        ))}
-                      </div>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:8}}>{instruments.map(inst=>(<div key={inst} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:8,background:`${AC}11`,border:`1px solid ${AC}33`}}><span style={{color:T.text,fontSize:12}}>{inst}</span><button className="icon-btn" onClick={()=>removeInstrument(inst)} style={{color:"#ff4444",fontSize:11,padding:"0 2px"}}>✕</button></div>))}</div>
                     </div>
                   )}
                   <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:10,padding:"8px 14px",borderRadius:10,background:T.cardBg,border:`1px solid ${T.border}`}}>
@@ -1480,30 +1441,20 @@ export default function App() {
                   </div>
                   <div className="table-wrap" style={{border:`1px solid ${getSongColor(C)}33`}}>
                     <table className="section-table">
-                      <thead>
-                        <tr style={{background:T.headBg}}>
-                          <th className="sticky-col-head" style={{padding:"10px 12px",borderBottom:`1px solid ${getSongColor(C)}44`,textAlign:"left",fontSize:10,color:getSongColor(C),letterSpacing:"0.12em",minWidth:160,background:T.headBg}}>SECTION</th>
-                          {instruments.map(inst=><th key={inst} style={{padding:"10px 8px",borderBottom:`1px solid ${getSongColor(C)}44`,textAlign:"center",fontSize:9,color:getSongColor(C),minWidth:72,whiteSpace:"nowrap",letterSpacing:"0.08em"}}>{inst.toUpperCase()}</th>)}
-                          <th style={{padding:"10px 8px",borderBottom:`1px solid ${getSongColor(C)}44`,textAlign:"center",fontSize:9,color:getSongColor(C),minWidth:130,whiteSpace:"nowrap"}}>STATUS / ACTIONS</th>
-                        </tr>
-                      </thead>
+                      <thead><tr style={{background:T.headBg}}>
+                        <th className="sticky-col-head" style={{padding:"10px 12px",borderBottom:`1px solid ${getSongColor(C)}44`,textAlign:"left",fontSize:10,color:getSongColor(C),letterSpacing:"0.12em",minWidth:160,background:T.headBg}}>SECTION</th>
+                        {instruments.map(inst=><th key={inst} style={{padding:"10px 8px",borderBottom:`1px solid ${getSongColor(C)}44`,textAlign:"center",fontSize:9,color:getSongColor(C),minWidth:72,whiteSpace:"nowrap",letterSpacing:"0.08em"}}>{inst.toUpperCase()}</th>)}
+                        <th style={{padding:"10px 8px",borderBottom:`1px solid ${getSongColor(C)}44`,textAlign:"center",fontSize:9,color:getSongColor(C),minWidth:130,whiteSpace:"nowrap"}}>STATUS / ACTIONS</th>
+                      </tr></thead>
                       <tbody>
                         {song.sections.map((section,ri)=>{
-                          const isLocked=!!song.locked?.[ri];
-                          const isStarred=!!song.starred?.[ri];
-                          const status=song.status?.[ri]||"Draft";
-                          const hasNote=!!getSectionNote(section);
-                          const audioCount=(song.audioNotes?.[section]||[]).length;
-                          const SC=getSongColor(C);
+                          const isLocked=!!song.locked?.[ri];const isStarred=!!song.starred?.[ri];const status=song.status?.[ri]||"Draft";
+                          const hasNote=!!getSectionNote(section);const audioCount=(song.audioNotes?.[section]||[]).length;const SC=getSongColor(C);
                           return(
                             <tr key={section+ri} draggable={!isLocked} onDragStart={()=>!isLocked&&setDraggedIndex(ri)} onDragOver={e=>e.preventDefault()} onDrop={()=>handleDrop(ri)} className="chrome-row" style={{borderBottom:`1px solid ${SC}18`,opacity:draggedIndex===ri?0.4:1,cursor:isLocked?"default":"grab",background:isStarred?`${SC}08`:"transparent"}}>
                               <td className="sticky-col" style={{padding:"6px 8px",fontSize:11,color:isLocked?T.subtext:T.text,fontWeight:600,minWidth:160,background:isStarred?`${SC}10`:T.stickyBg}}>
                                 {editingIndex===ri?(
-                                  <div style={{display:"flex",gap:4}}>
-                                    <input style={inp({padding:"3px 6px",fontSize:11})} value={editingValue} onChange={e=>setEditingValue(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveEdit()} autoFocus/>
-                                    <button className="icon-btn" onClick={saveEdit} style={{color:SC,fontSize:12}}>✓</button>
-                                    <button className="icon-btn" onClick={()=>setEditingIndex(null)} style={{color:T.subtext,fontSize:12}}>✕</button>
-                                  </div>
+                                  <div style={{display:"flex",gap:4}}><input style={inp({padding:"3px 6px",fontSize:11})} value={editingValue} onChange={e=>setEditingValue(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveEdit()} autoFocus/><button className="icon-btn" onClick={saveEdit} style={{color:SC,fontSize:12}}>✓</button><button className="icon-btn" onClick={()=>setEditingIndex(null)} style={{color:T.subtext,fontSize:12}}>✕</button></div>
                                 ):(
                                   <div style={{display:"flex",alignItems:"center",gap:6}}>
                                     <button className="lines-btn" onTouchStart={()=>handleLinesTouchStart(ri,section)} onTouchEnd={()=>handleLinesTouchEnd(ri,section)} onClick={()=>!isDragging&&setSectionNoteOpen(section)} style={{position:"relative"}}>
@@ -1513,8 +1464,7 @@ export default function App() {
                                     </button>
                                     <div style={{flex:1,overflow:"hidden"}}>
                                       <div style={{display:"flex",alignItems:"center",gap:4}}>
-                                        {isStarred&&<span style={{fontSize:10}}>⭐</span>}
-                                        {isLocked&&<span style={{fontSize:10}}>🔒</span>}
+                                        {isStarred&&<span style={{fontSize:10}}>⭐</span>}{isLocked&&<span style={{fontSize:10}}>🔒</span>}
                                         <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{section}</span>
                                       </div>
                                     </div>
@@ -1522,16 +1472,13 @@ export default function App() {
                                 )}
                               </td>
                               {instruments.map((_,ci)=>{
-                                const colors=getColors(section,ci);const myCheck=isMine(section,ci,song.id);
-                                const others=colors.filter(c=>getSongColor(c.hex)!==SC);
-                                return(
-                                  <td key={ci} style={{padding:"6px 8px",textAlign:"center"}}>
-                                    <div onClick={()=>!isLocked&&toggleChecked(section,ci,song.id)} style={{width:22,height:22,margin:"0 auto",border:`2px solid ${myCheck?SC:SC+"33"}`,borderRadius:5,background:T.checkBg,cursor:isLocked?"default":"pointer",position:"relative",boxShadow:myCheck?`0 0 6px ${SC}88`:"none",transition:"all 0.15s"}}>
-                                      {others.length>0&&<div style={{position:"absolute",top:-5,right:-5,display:"flex",gap:1}}>{others.slice(0,3).map((c,i)=><div key={i} style={{width:6,height:6,borderRadius:"50%",background:getSongColor(c.hex),boxShadow:`0 0 3px ${getSongColor(c.hex)}`}}/>)}</div>}
-                                      {myCheck&&<div style={{position:"absolute",left:4,top:1,width:8,height:12,border:`2px solid ${SC}`,borderTop:"none",borderLeft:"none",transform:"rotate(45deg)"}}/>}
-                                    </div>
-                                  </td>
-                                );
+                                const colors=getColors(section,ci);const myCheck=isMine(section,ci,song.id);const others=colors.filter(c=>getSongColor(c.hex)!==SC);
+                                return(<td key={ci} style={{padding:"6px 8px",textAlign:"center"}}>
+                                  <div onClick={()=>!isLocked&&toggleChecked(section,ci,song.id)} style={{width:22,height:22,margin:"0 auto",border:`2px solid ${myCheck?SC:SC+"33"}`,borderRadius:5,background:T.checkBg,cursor:isLocked?"default":"pointer",position:"relative",boxShadow:myCheck?`0 0 6px ${SC}88`:"none",transition:"all 0.15s"}}>
+                                    {others.length>0&&<div style={{position:"absolute",top:-5,right:-5,display:"flex",gap:1}}>{others.slice(0,3).map((c,i)=><div key={i} style={{width:6,height:6,borderRadius:"50%",background:getSongColor(c.hex),boxShadow:`0 0 3px ${getSongColor(c.hex)}`}}/>)}</div>}
+                                    {myCheck&&<div style={{position:"absolute",left:4,top:1,width:8,height:12,border:`2px solid ${SC}`,borderTop:"none",borderLeft:"none",transform:"rotate(45deg)"}}/>}
+                                  </div>
+                                </td>);
                               })}
                               <td style={{padding:"6px 8px",textAlign:"center",whiteSpace:"nowrap"}}>
                                 <button onClick={()=>cycleStatus(ri)} style={{background:`${STATUS_COLORS[status]}22`,border:`1px solid ${STATUS_COLORS[status]}66`,color:STATUS_COLORS[status],borderRadius:6,padding:"2px 6px",fontSize:9,fontWeight:700,cursor:"pointer",marginBottom:4,display:"block",width:"100%"}}>{status.toUpperCase()}</button>
@@ -1577,6 +1524,7 @@ export default function App() {
         </div>
       </div>
 
+      {/* SPLASH */}
       {(phase==="loading"||phase==="fading")&&(
         <div className={phase==="fading"?"splash-fade":""} style={{position:"fixed",inset:0,zIndex:9999,background:"#000",overflow:"hidden",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end"}}>
           <img src={SPLASH_IMG} alt="Dog Bones" style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",objectPosition:"center"}}/>
@@ -1593,4 +1541,4 @@ export default function App() {
       )}
     </>
   );
-    }
+}
