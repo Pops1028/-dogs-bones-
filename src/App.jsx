@@ -1,7 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
-
-const SPLASH_IMG = "/Screenshot_20260514_110057_ChatGPT~2.jpg";
-const LOGO_TEXT  = "/Screenshot_20260514_221551_Photos~2.jpg";
+import { Screenshot_20260514_221551_Photos~2.jpg";
 
 const SONG_COLORS = [
   { name:"green",  hex:"#39ff14", dim:"#1a4a00", tab:"rgba(57,255,20,0.15)"  },
@@ -64,66 +61,7 @@ function load(key,fallback){try{const v=localStorage.getItem(key);return v?JSON.
 function save(key,val){try{localStorage.setItem(key,JSON.stringify(val));}catch{}}
 function fmtTime(s){return `${Math.floor(s/60)}:${Math.floor(s%60).toString().padStart(2,"0")}`;}
 
-async function createReverbNode(ac,amount){
-  const convolver=ac.createConvolver();
-  const rate=ac.sampleRate;
-  const length=rate*(0.5+amount*3.5);
-  const impulse=ac.createBuffer(2,length,rate);
-  for(let c=0;c<2;c++){const ch=impulse.getChannelData(c);for(let i=0;i<length;i++)ch[i]=(Math.random()*2-1)*Math.pow(1-i/length,1+amount*3);}
-  convolver.buffer=impulse;return convolver;
-}
-function applyEQ(ac,source,track){
-  const low=ac.createBiquadFilter();const mid=ac.createBiquadFilter();const high=ac.createBiquadFilter();
-  low.type="lowshelf";low.frequency.value=200;low.gain.value=(track.lows||0)*12;
-  mid.type="peaking";mid.frequency.value=1000;mid.gain.value=(track.mids||0)*12;mid.Q.value=1;
-  high.type="highshelf";high.frequency.value=4000;high.gain.value=(track.highs||0)*12;
-  source.connect(low);low.connect(mid);mid.connect(high);return high;
-}
-function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v));}
-function dbToLinear(db){return Math.pow(10,db/20);}
-
-function StepControl({label,value,onChange,min=0,max=1,step=0.1,TC,formatLabel}){
-  const pct=Math.round(((value-min)/(max-min))*100);
-  const displayVal=value>0?`+${Math.round(value*10)}`:Math.round(value*10);
-  return(
-    <div style={{flex:1}}>
-      <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-        <span style={{color:TC,fontSize:10,fontWeight:700,letterSpacing:"0.08em"}}>{label}</span>
-        <span style={{color:TC,fontSize:10,fontWeight:700}}>{displayVal}</span>
-      </div>
-      <div style={{display:"flex",alignItems:"center",gap:6}}>
-        <button onClick={()=>onChange(Math.max(min,Math.round((value-step)*10)/10))}
-          style={{width:36,height:36,borderRadius:8,flexShrink:0,background:value<=min?`${TC}08`:`${TC}22`,border:`1px solid ${TC}${value<=min?"22":"66"}`,color:value<=min?`${TC}44`:TC,cursor:value<=min?"not-allowed":"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>⬇️</button>
-        <div style={{flex:1,height:6,borderRadius:3,background:"rgba(128,128,128,0.2)",overflow:"hidden"}}>
-          <div style={{height:"100%",width:`${pct}%`,background:`linear-gradient(90deg,${TC}88,${TC})`,borderRadius:3,boxShadow:value!==0?`0 0 6px ${TC}66`:"none",transition:"width 0.1s ease"}}/>
-        </div>
-        <button onClick={()=>onChange(Math.min(max,Math.round((value+step)*10)/10))}
-          style={{width:36,height:36,borderRadius:8,flexShrink:0,background:value>=max?`${TC}08`:`${TC}22`,border:`1px solid ${TC}${value>=max?"22":"66"}`,color:value>=max?`${TC}44`:TC,cursor:value>=max?"not-allowed":"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>⬆️</button>
-      </div>
-      {formatLabel&&<p style={{color:"rgba(128,128,128,0.6)",fontSize:9,margin:"4px 0 0",letterSpacing:"0.05em"}}>{formatLabel(value)}</p>}
-    </div>
-  );
-}
-
-// ── NEXUS MIX ──────────────────────────────────────────────────────────────
-const NX={
-  bg:"#0a0a0f",panel:"#111118",border:"#1e1e2e",
-  accent:"#00e5ff",accentDim:"#00e5ff22",
-  green:"#00ff9d",amber:"#ffb700",red:"#ff4466",purple:"#b060ff",
-  text:"#e0e0f0",muted:"#5a5a7a",
-};
-
-// NxKnob — drag up/down to change value
-function NxKnob({label,value,min,max,unit="",color=NX.accent,onChange,size=48}){
-  const dragRef=useRef(null);
-  const norm=(value-min)/(max-min);
-  const angle=norm*270-135;
-  const r=size/2-4,cx=size/2,cy=size/2;
-  const toXY=deg=>{const rad=((deg-90)*Math.PI)/180;return[cx+r*Math.cos(rad),cy+r*Math.sin(rad)];};
-  const[sx,sy]=toXY(-135);
-  const[ex,ey]=toXY(angle);
-  const large=norm*270>180?1:0;
-  const handleMouseDown=e=>{
+e=>{
     e.preventDefault();
     dragRef.current={startY:e.clientY,startVal:value};
     const move=ev=>{const delta=(dragRef.current.startY-ev.clientY)/150;onChange(parseFloat(clamp(dragRef.current.startVal+delta*(max-min),min,max).toFixed(1)));};
